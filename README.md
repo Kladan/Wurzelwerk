@@ -1,0 +1,64 @@
+# Wurzelwerk · Dein lokaler Stammbaum
+
+Wurzelwerk erfasst Personen, Eltern, Kinder und Partnerschaften auf dem eigenen Rechner. Aus dem Stammbaum entsteht eine lesbare Familienchronik mit Personenverzeichnis, Verweisen, Erinnerungen und Quellen. Die Anwendung benötigt kein Konto, keine Synchronisierung und keine Cloud.
+
+## Starten
+
+Voraussetzung: **Node.js 24 oder neuer** und ein aktueller Browser. Im Projektordner ausführen:
+
+```sh
+npm start
+```
+
+Anschließend **http://127.0.0.1:4173** im Browser öffnen. Unter Windows alternativ **Start.cmd** doppelklicken. Unter Windows/PowerShell kann bei gesperrten PowerShell-Skripten `npm.cmd start` verwendet werden. Der Server bleibt im Terminal aktiv; `Strg+C` beendet ihn. Eine Paketinstallation oder ein Build ist zum Starten nicht nötig: Es gibt keine externen Laufzeitabhängigkeiten.
+
+Der Server lauscht ausschließlich auf `127.0.0.1`. Er liefert Programmdateien aus und empfängt oder speichert keine Familiendaten. Nach Installation von Node.js funktioniert die Anwendung ohne Internetzugang. Fonts, Skripte und Gestaltung sind lokal enthalten.
+
+## Eine Familie erfassen
+
+1. **Person hinzufügen** wählen und mindestens einen Vor- oder Nachnamen eintragen.
+2. Weitere Personen anlegen. Beim Bearbeiten lassen sich bis zu zwei Eltern sowie Partnerschaften auswählen. Kinder ergeben sich aus den eingetragenen Eltern; **Kind hinzufügen** übernimmt die gewählte Person als Elternteil.
+3. Geburtsname, Orte, Erinnerungen und Quellen nach Bedarf ergänzen. Daten dürfen als Jahr (`1948`), Jahr und Monat (`1948-03`) oder vollständiges Datum (`1948-03-21`) erfasst werden.
+4. Im Stammbaum eine Person auswählen oder im Personenverzeichnis nach Namen und Geburtsorten suchen.
+
+Die Generation ergibt sich aus den erfassten Elternbeziehungen. Fehlende Vorfahren können dazu führen, dass Partner in verschiedenen Zeilen stehen. Elternbeziehungen dürfen keinen Kreis erzeugen. **Beispiel erkunden** lädt ausschließlich erfundene Daten.
+
+## Speichern und sichern
+
+Erfolgreich gespeicherte Änderungen liegen im **localStorage des verwendeten Browserprofils**. Immer dasselbe Profil und dieselbe Adresse einschließlich Port verwenden: `localhost`, `127.0.0.1`, andere Ports und andere Browser haben getrennte Speicherbereiche.
+
+**Sicherung speichern** lädt den vollständigen Stammbaum als JSON-Datei herunter. Diese Datei regelmäßig zusätzlich an einem selbst gewählten sicheren Ort aufbewahren. **Sicherung öffnen** liest eine Wurzelwerk-JSON-Datei ein; nach Bestätigung ersetzt sie den aktuellen Stammbaum. Vor **Neuer Stammbaum** oder einem Import zuerst die bisherige Familie sichern. Die Sicherungsdatei ermöglicht auch die Weitergabe an andere, die ihre eigene lokale Installation verwenden.
+
+Browserdaten sind kein verlässliches Backup: Löschen der Website-Daten, ein entferntes Browserprofil oder privates Surfen können den Stammbaum verlieren lassen. Bei einem Lesefehler schützt die Anwendung bestehende Rohdaten vor Überschreiben und bietet deren Download an. Ungültige Sicherungen werden abgewiesen.
+
+Bei beschädigten Browserdaten zuerst **Rohdaten sichern**, anschließend über **Sicherung öffnen** eine gültige JSON-Sicherung auswählen und das Ersetzen bestätigen. Ein weiterhin gesperrter oder voller Browserspeicher muss zunächst im Browser behoben werden. Importe sind auf 25 MB begrenzt. Bearbeite den Stammbaum in einem Fenster: Veraltete Speicherstände werden erkannt, exakt gleichzeitige Schreibvorgänge sind jedoch nicht transaktional abgesichert.
+
+Familiendaten und Sicherungen sind **nicht verschlüsselt**. Wer Zugriff auf das Browserprofil oder die Dateien hat, kann sie lesen. Es gibt keine Benutzerkonten oder Zugriffstrennung innerhalb der Anwendung. Auch eine exportierte Chronik enthält persönliche Angaben; die Empfänger selbst auswählen.
+
+## Als Dokument ausgeben
+
+**Familienchronik** zeigt alle erfassten Personen mit ihren Beziehungen, Erinnerungen und Quellen. **Drucken / PDF** öffnet den Druckdialog des Browsers; dort einen Drucker oder **Als PDF speichern** wählen. Die Anwendung selbst schreibt keine PDF-Datei ohne diesen Dialog.
+
+**Dokument herunterladen** erzeugt zusätzlich eine eigenständige HTML-Chronik. Sie lässt sich ohne laufenden Server öffnen und drucken. Sie enthält ihre Gestaltung und benötigt keine externen Ressourcen. Es werden immer alle erfassten Personen und Notizen ausgegeben; eine automatische Ausblendung lebender Personen gibt es derzeit nicht.
+
+## Entwicklung und Weitergabe
+
+```sh
+npm test
+npm run check
+npm run build
+```
+
+`check` prüft die JavaScript-Syntax, führt die automatisierten Tests aus und baut die statischen Dateien. `build` legt die Anwendung unter `dist/` ab. Diese Dateien müssen über einen lokalen HTTP-Server bereitgestellt werden; die Anwendung per `file://` zu öffnen wird nicht unterstützt. Die heruntergeladene HTML-Chronik ist davon unabhängig.
+
+Die Architektur trennt Fachregeln (`src/domain.js`), Browserspeicher (`src/storage.js`), Dokumentausgabe (`src/report.js`) und Oberfläche (`src/app.js`). Native Browsermodule und Node.js-Bordmittel halten Installation und Offline-Betrieb einfach. Eigene Familien werden als Daten erfasst; Anpassungen am Quellcode sind dafür nicht nötig.
+
+## Aktueller Umfang
+
+- Ein aktiver Stammbaum pro Browserprofil und Adresse; mehrere Familien über getrennte Sicherungsdateien.
+- Höchstens 5.000 Personen und zwei Eltern pro Person. Keine Unterscheidung biologischer, adoptiver oder anderer Elternbeziehungen.
+- Partnerschaften ohne Heiratsereignisse oder Beziehungszeiträume; keine Fotos oder Anhänge.
+- Import und Export im eigenen versionierten JSON-Format; kein GEDCOM-Import.
+- Keine automatische Synchronisierung, Verschlüsselung, Cloud-Sicherung oder Mehrbenutzerbearbeitung.
+
+Ausgeführte Prüfungen und deren Grenzen stehen in [docs/review.md](docs/review.md).
