@@ -1,5 +1,17 @@
 # Umsetzungs- und Prüfnotiz
 
+## Spitznamen (8. November 2026)
+
+Das optionale, auf 500 Zeichen begrenzte Feld `nickname` wird ausdrücklich validiert und projiziert. Alte Version-1-Daten ohne das Feld bleiben lesbar. Der Spitzname ersetzt die Hauptanzeige der Vornamen; die echten Vornamen bleiben in Speicherung und Sicherung erhalten und stehen auf Karten, in Details, Verzeichnissen und Chronik kleiner separat. Beziehungen verwenden den bevorzugten Anzeigenamen. Ein leerer Spitzname stellt die bisherige Anzeige wieder her. Ohne erfasste Vornamen wird keine zusätzliche Namenszeile erfunden.
+
+Ein unabhängiger Agent prüfte Datenerhalt, Kompatibilität, Maskierung und Druckcode. Sein Suchbefund wurde behoben: Hauptsuche, Auswahlzählung und Elternsuche berücksichtigen neben dem Spitznamen auch den vollständigen echten Namen. Die abschließende Lesekontrolle bestätigte die Korrektur ohne weitere blockierende Befunde.
+
+Die technische Leitung prüfte in einem eigenen Chrome-Headless-Profil mit ausschließlich fiktiven Daten Bearbeiten, Speichern, Neuladen und Entfernen, Suche nach beiden vollständigen Namen, kleinere separate Vornamen, Tab-Reihenfolge zum Spitznamenfeld, Dialog und Seitenbreite bei 390 Pixeln sowie die Chronikanzeige. Mobile Ansicht und emulierte Druckansicht wurden visuell geprüft. Eine Baum-PDF hatte eine Seite; der Druckzyklus veränderte keine gespeicherten Daten. 100 Zeichen Spitzname und 500 Zeichen Vornamen erzeugten keinen SVG-Textüberlauf.
+
+Zwei zusätzliche automatisierte Verhaltenstests prüfen Altformat, Speicher-/JSON-Rundlauf, Ablehnung ungültiger Spitznamen ohne Überschreiben, Entfernen, Beibehaltung sämtlicher Vornamen, HTML-/SVG-Maskierung und fehlende Vornamen. `npm.cmd run check` bestand mit 50 Tests, Syntaxprüfungen und Build; `git diff --check` ohne Formatfehler.
+
+Prüfgrenzen: Nur Chrome, kein Screenreader, kein physischer Ausdruck und keine Rasterprüfung der PDF selbst. Sehr lange Vornamen werden auf Baumdruckkarten mit … gekürzt; vollständig stehen sie im SVG-Titel und optionalen Verzeichnis. Browserprofil, PDF, Bilder und Prüfskript bleiben im ignorierten lokalen Arbeitsverzeichnis.
+
 ## Geburtsfolge der Geschwister hat Vorrang (8. November 2026)
 
 Auf Nutzerwunsch bleibt innerhalb jedes Geschwisterblocks die Reihenfolge nach bekanntem Geburtsdatum erhalten, auch bei Partnerschaften und gemeinsamen Kindern. Die Verschiebung einzelner Geschwister an Blockränder entfällt. Die Anordnung ganzer Familienzweige in beiden Richtungen bleibt erhalten. Fehlende Geburtsdaten stehen weiterhin nach bekannten Daten; Namen und IDs lösen Gleichstände auf.

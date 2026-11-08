@@ -22,6 +22,49 @@ function setupStorage(value = null) {
   return storage;
 }
 
+test('nicknames survive legacy loading, saving and backup round trips without replacing given names', () => {
+  const legacy = demoTree();
+  for (const person of legacy.people) delete person.nickname;
+  const storage = setupStorage(JSON.stringify(legacy));
+  const tree = loadTree();
+  assert.equal(tree.people[0].nickname, '');
+  tree.people[0].nickname = '  Otti  ';
+  const saved = saveTree(tree);
+  assert.equal(saved.people[0].nickname, 'Otti');
+  assert.equal(saved.people[0].firstName, 'Otto');
+  assert.deepEqual(validateTree(JSON.parse(storage.value)), saved);
+  assert.deepEqual(loadTree(), saved);
+  const previous = storage.value;
+  for (const nickname of [42, {}, [], 'a'.repeat(501)]) {
+    tree.people[0].nickname = nickname;
+    assert.throws(() => saveTree(tree), /nickname/);
+    assert.equal(storage.value, previous);
+  }
+  tree.people[0].nickname = '';
+  assert.equal(displayName(saveTree(tree).people[0]), 'Otto Linden');
+});
+
+test('nickname display retains and escapes all given names in chronicle and tree print', () => {
+  const person = createPerson({ id: 'nick', firstName: 'Johann <Hans> Friedrich', nickname: 'Hansi <img>', lastName: 'Linden' });
+  const tree = validateTree({ ...createTree(), people: [person] });
+  assert.equal(displayName(person), 'Hansi <img> Linden');
+  for (const output of [reportMarkup(tree), reportDocument(tree), treePrintMarkup(tree, { includeIndex: true })]) {
+    assert.ok(output.includes('Hansi &lt;img&gt; Linden'));
+    assert.ok(output.includes('Johann &lt;Hans&gt; Friedrich'));
+    assert.equal(output.includes('<img>'), false);
+    assert.equal(output.includes('<Hans>'), false);
+  }
+  const print = treePrintMarkup(tree);
+  assert.ok(print.includes('class="tree-print-original"'));
+  assert.ok(print.includes('font-size="15" data-fit-width="154">Johann'));
+  const noGivenNames = createPerson({ id: 'unknown', nickname: 'Hansi', lastName: 'Linden' });
+  const output = reportMarkup({ ...createTree(), people: [noGivenNames] });
+  assert.equal(output.includes('class="original-names"'), false);
+  person.nickname = '';
+  assert.equal(displayName(person), 'Johann <Hans> Friedrich Linden');
+  assert.equal(treePrintMarkup({ ...tree, people: [person] }).includes('class="tree-print-original"'), false);
+});
+
 test('a new local tree can be saved and loaded without changing its data', () => {
   const storage = setupStorage();
   assert.deepEqual(loadTree(), createTree());

@@ -1,4 +1,4 @@
-const PERSON_FIELDS = ['firstName', 'lastName', 'birthName', 'birthDate', 'birthPlace', 'deathDate', 'deathPlace', 'notes', 'sources'];
+const PERSON_FIELDS = ['firstName', 'nickname', 'lastName', 'birthName', 'birthDate', 'birthPlace', 'deathDate', 'deathPlace', 'notes', 'sources'];
 const MAX_PEOPLE = 5000;
 
 function text(value, field, max = 500) {
@@ -192,7 +192,7 @@ export function deletePerson(tree, id) {
 }
 
 export function displayName(person) {
-  return [person.firstName, person.lastName].filter(Boolean).join(' ') || 'Unbenannte Person';
+  return [person.nickname || person.firstName, person.lastName].filter(Boolean).join(' ') || 'Unbenannte Person';
 }
 
 export function getGenerations(tree) {
