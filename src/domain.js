@@ -7,9 +7,9 @@ function text(value, field, max = 500) {
 }
 
 function date(value, field) {
-  const normalized = text(value, field, 10);
+  const normalized = text(value, field, 10).replace(/^(\d{2})\.(\d{2})\.(\d{4})$/, '$3-$2-$1');
   if (!normalized) return '';
-  if (!/^\d{4}(-\d{2})?(-\d{2})?$/.test(normalized)) throw new Error(`${field}: Bitte Jahr, Jahr-Monat oder Jahr-Monat-Tag verwenden.`);
+  if (!/^\d{4}(-\d{2})?(-\d{2})?$/.test(normalized)) throw new Error(`${field}: Bitte TT.MM.JJJJ, JJJJ, JJJJ-MM oder JJJJ-MM-TT verwenden.`);
   const [year, month = 1, day = 1] = normalized.split('-').map(Number);
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];

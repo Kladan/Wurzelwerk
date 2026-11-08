@@ -81,6 +81,27 @@ test('adding a new person supports partners and partial historical dates', () =>
   assert.equal(result.people.at(-1).birthDate, '1890');
 });
 
+test('German dates normalize before chronology checks and survive export/import', () => {
+  const tree = createTree();
+  const person = createPerson({ id: 'date-test', firstName: 'Test', birthDate: '29.02.2000', deathDate: '01.03.2000' });
+  const saved = upsertPerson(tree, person);
+  assert.equal(saved.people[0].birthDate, '2000-02-29');
+  assert.equal(saved.people[0].deathDate, '2000-03-01');
+  assert.deepEqual(validateTree(JSON.parse(JSON.stringify(saved))), saved);
+  assert.equal(person.birthDate, '29.02.2000');
+  assert.deepEqual(tree.people, []);
+  assert.equal(validateTree({ ...tree, people: [person] }).people[0].birthDate, '2000-02-29');
+  for (const [birthDate, deathDate] of [['02.03.2000', '2000-03-01'], ['2000-03-02', '01.03.2000'], ['02.03.2000', '01.03.2000']]) {
+    assert.throws(() => upsertPerson(tree, { ...person, birthDate, deathDate }), /vor/);
+  }
+  assert.doesNotThrow(() => upsertPerson(tree, { ...person, birthDate: '2000', deathDate: '01.01.2000' }));
+  for (const value of ['29.02.1900', '31.04.2000', '00.03.2000', '01.00.2000', '01.13.2000', '01.01.0000', '1.03.2000', '01/03/2000']) {
+    for (const field of ['birthDate', 'deathDate']) {
+      assert.throws(() => upsertPerson(tree, { ...person, [field]: value }), /datum/);
+    }
+  }
+});
+
 test('invalid dates, impossible chronology and invalid import shape are rejected', () => {
   const tree = demoTree();
   for (const birthDate of ['2023-02-29', '2024-13-01', '0000', '9.2.1900']) {

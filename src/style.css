@@ -138,6 +138,7 @@ dialog::backdrop { background: #152c2366; backdrop-filter: blur(3px); }
 .dialog-header h2 { margin: 0; }
 .dialog-body { padding: 22px 27px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding: 18px 27px; border-top: 1px solid var(--line); background: #f7f8f1; }
+.person-editor > .dialog-actions { position: sticky; top: 0; z-index: 1; border-top: 0; border-bottom: 1px solid var(--line); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; }
 .field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
 .field.full, .full { grid-column: 1 / -1; }
