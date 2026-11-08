@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTree, createPerson, validateTree, upsertPerson, deletePerson, getGenerations, getTreeGenerations, demoTree } from '../src/domain.js';
+import { createTree, createPerson, validateTree, upsertPerson, addRelative, deletePerson, getGenerations, getTreeGenerations, getParentSuggestions, demoTree } from '../src/domain.js';
 
 test('fictional tree survives JSON export/import without information loss', () => {
   const tree = demoTree();
@@ -132,4 +132,85 @@ test('tree order keeps recorded partners together within the same generation', (
     createPerson({ id: 'z', firstName: 'Zora', partnerIds: ['a'] }),
   ] });
   assert.deepEqual(getTreeGenerations(tree)[0].map(p => p.id), ['a', 'z', 'b']);
+});
+
+test('a parentless partner joins generation three and descendants follow without invented ancestry', () => {
+  const tree = demoTree();
+  const original = structuredClone(tree);
+  const result = addRelative(tree, createPerson({ id: 'new-partner', firstName: 'Robin' }), 'anna', 'partner');
+  const withChild = addRelative(result, createPerson({ id: 'new-child', firstName: 'Alex' }), 'new-partner', 'child');
+  const rows = getGenerations(withChild).map(row => row.map(person => person.id));
+  assert.ok(rows[2].includes('new-partner'));
+  assert.ok(rows[2].includes('anna'));
+  assert.deepEqual(rows[3], ['new-child']);
+  assert.deepEqual(withChild.people.find(person => person.id === 'new-partner').parentIds, []);
+  assert.deepEqual(tree, original);
+  assert.deepEqual(getGenerations(validateTree(JSON.parse(JSON.stringify(withChild)))) , getGenerations(withChild));
+  assert.deepEqual(getTreeGenerations({ ...withChild, people: [...withChild.people].reverse() }), getTreeGenerations(withChild));
+  const detached = upsertPerson(withChild, { ...withChild.people.find(person => person.id === 'new-partner'), partnerIds: [] });
+  assert.ok(getGenerations(detached)[0].some(person => person.id === 'new-partner'));
+  assert.ok(getGenerations(detached)[1].some(person => person.id === 'new-child'));
+});
+
+test('parentless partner chains align; recorded parents still determine known ancestry', () => {
+  let tree = demoTree();
+  tree = addRelative(tree, createPerson({ id: 'robin', firstName: 'Robin' }), 'anna', 'partner');
+  tree = addRelative(tree, createPerson({ id: 'alex', firstName: 'Alex' }), 'robin', 'partner');
+  tree = upsertPerson(tree, { ...tree.people.find(person => person.id === 'johanna'), partnerIds: ['anna'] });
+  const levels = new Map(getGenerations(tree).flatMap((row, level) => row.map(person => [person.id, level])));
+  assert.equal(levels.get('robin'), 2);
+  assert.equal(levels.get('alex'), 2);
+  assert.equal(levels.get('johanna'), 1);
+  assert.equal(levels.get('anna'), 2);
+});
+
+test('conflicting partner alignment cannot reject or loop on valid ancestry', () => {
+  const tree = validateTree({ ...createTree(), people: [
+    createPerson({ id: 'a', firstName: 'A', partnerIds: ['b-child'] }),
+    createPerson({ id: 'b', firstName: 'B', partnerIds: ['a-child'] }),
+    createPerson({ id: 'a-child', firstName: 'AC', parentIds: ['a'], partnerIds: ['b'] }),
+    createPerson({ id: 'b-child', firstName: 'BC', parentIds: ['b'], partnerIds: ['a'] }),
+  ] });
+  const before = structuredClone(tree);
+  const rows = getGenerations(tree).map(row => row.map(person => person.id).sort());
+  assert.deepEqual(rows, [['a', 'b'], ['a-child', 'b-child']]);
+  assert.deepEqual(getGenerations({ ...tree, people: [...tree.people].reverse() }), getGenerations(tree));
+  assert.deepEqual(tree, before);
+  const ancestorPartner = upsertPerson(demoTree(), { ...demoTree().people[0], partnerIds: ['anna'] });
+  assert.ok(getGenerations(ancestorPartner)[0].some(person => person.id === 'otto'));
+});
+
+test('adding a parent connects the existing child and changes neither original data nor other relationships', () => {
+  const tree = demoTree();
+  const before = structuredClone(tree);
+  const result = addRelative(tree, createPerson({ id: 'parent', firstName: 'Alex' }), 'clara', 'parent');
+  assert.deepEqual(result.people.find(person => person.id === 'clara').parentIds, ['parent']);
+  assert.deepEqual(result.people.find(person => person.id === 'clara').partnerIds, ['paul']);
+  assert.deepEqual(result.people.find(person => person.id === 'parent').parentIds, []);
+  assert.deepEqual(tree, before);
+});
+
+test('failed relative creation preserves all data and rejects parent limits, cycles and existing IDs', () => {
+  const tree = demoTree();
+  const before = structuredClone(tree);
+  const input = createPerson({ id: 'new', firstName: 'Alex' });
+  assert.throws(() => addRelative(tree, input, 'anna', 'parent'), /zwei Eltern/);
+  assert.throws(() => addRelative(tree, { ...input, parentIds: ['clara'] }, 'clara', 'parent'), /Kreis/);
+  assert.throws(() => addRelative(tree, { ...input, parentIds: ['otto', 'martha'] }, 'clara', 'child'));
+  assert.throws(() => addRelative(tree, tree.people[0], 'clara', 'parent'), /bereits vorhanden/);
+  assert.throws(() => addRelative(tree, input, 'missing', 'partner'), /Bezugsperson/);
+  assert.throws(() => addRelative(tree, input, 'clara', 'unknown'), /Verbindungsart/);
+  assert.deepEqual(tree, before);
+});
+
+test('second parent suggestions prioritize partners, include the same generation and never select them automatically', () => {
+  let tree = demoTree();
+  tree = addRelative(tree, createPerson({ id: 'partner', firstName: 'Zora' }), 'paul', 'partner');
+  const before = structuredClone(tree);
+  assert.deepEqual(getParentSuggestions(tree, ['paul'], 'johanna').map(person => person.id), ['clara', 'partner']);
+  assert.deepEqual(getParentSuggestions(tree, ['paul'], 'anna').map(person => person.id), ['clara', 'partner', 'johanna']);
+  assert.deepEqual(getParentSuggestions(tree, [], 'anna'), []);
+  assert.deepEqual(getParentSuggestions(tree, ['paul', 'clara'], 'anna'), []);
+  assert.deepEqual(getParentSuggestions(tree, ['missing'], 'anna'), []);
+  assert.deepEqual(tree, before);
 });

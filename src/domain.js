@@ -117,6 +117,24 @@ export function upsertPerson(tree, input) {
   return validateTree({ ...current, people });
 }
 
+/** Return one complete change; callers persist only the final, validated tree. */
+export function addRelative(tree, input, relativeId, relationship) {
+  const current = validateTree(tree);
+  const person = normalizePerson(input);
+  const relative = current.people.find(entry => entry.id === relativeId);
+  if (!relative) throw new Error('Die Bezugsperson ist nicht mehr vorhanden.');
+  if (current.people.some(entry => entry.id === person.id)) throw new Error('Die neue Person ist bereits vorhanden.');
+  if (!['parent', 'partner', 'child'].includes(relationship)) throw new Error('Unbekannte Verbindungsart.');
+  if (relationship === 'parent' && relative.parentIds.length >= 2) throw new Error('Es sind bereits zwei Eltern eingetragen.');
+  if (relationship === 'child') person.parentIds = [...new Set([...person.parentIds, relativeId])];
+  if (relationship === 'partner') person.partnerIds = [...new Set([...person.partnerIds, relativeId])];
+  const next = upsertPerson(current, person);
+  const updatedRelative = next.people.find(entry => entry.id === relativeId);
+  return relationship === 'parent'
+    ? upsertPerson(next, { ...updatedRelative, parentIds: [...updatedRelative.parentIds, person.id] })
+    : next;
+}
+
 export function deletePerson(tree, id) {
   const current = validateTree(tree);
   return { ...current, people: current.people.filter(person => person.id !== id).map(person => ({
@@ -131,10 +149,76 @@ export function displayName(person) {
 }
 
 export function getGenerations(tree) {
-  const levels = generationLevels(tree);
+  const levels = displayGenerationLevels(tree);
   const groups = [];
   for (const person of tree.people) (groups[levels.get(person.id)] ??= []).push(person);
   return groups.map(group => group.sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'de')));
+}
+
+/** Unknown ancestry may follow a partner, without recording invented parents. */
+function displayGenerationLevels(tree) {
+  generationLevels(tree); // Ancestry cycles remain invalid, independently of layout.
+  const byId = new Map(tree.people.map(person => [person.id, person]));
+  const groupOf = new Map();
+  const groups = [];
+  for (const person of tree.people) {
+    if (groupOf.has(person.id)) continue;
+    const group = [person.id];
+    groupOf.set(person.id, groups.length);
+    // Parentless partners form one display group; recorded ancestry stays separate.
+    for (let i = 0; i < group.length; i++) {
+      const member = byId.get(group[i]);
+      if (member.parentIds.length) continue;
+      for (const id of member.partnerIds) if (!byId.get(id).parentIds.length && !groupOf.has(id)) {
+        groupOf.set(id, groups.length);
+        group.push(id);
+      }
+    }
+    groups.push(group);
+  }
+  const edges = [];
+  for (const person of tree.people) {
+    const target = groupOf.get(person.id);
+    for (const id of person.parentIds) edges.push({ source: groupOf.get(id), target, distance: 1 });
+    if (!person.parentIds.length) for (const id of person.partnerIds) {
+      if (byId.get(id).parentIds.length) edges.push({ source: groupOf.get(id), target, distance: 0 });
+    }
+  }
+  const traverse = omittedTargets => {
+    const pending = groups.map(() => 0);
+    const outgoing = groups.map(() => []);
+    const levels = groups.map(() => 0);
+    for (const edge of edges) {
+      if (edge.distance === 0 && omittedTargets.has(edge.target)) continue;
+      pending[edge.target]++;
+      outgoing[edge.source].push(edge);
+    }
+    const queue = groups.map((_, index) => index).filter(index => pending[index] === 0);
+    for (let i = 0; i < queue.length; i++) for (const edge of outgoing[queue[i]]) {
+      levels[edge.target] = Math.max(levels[edge.target], levels[edge.source] + edge.distance);
+      if (--pending[edge.target] === 0) queue.push(edge.target);
+    }
+    return { levels, unresolved: new Set(groups.map((_, index) => index).filter(index => pending[index] > 0)) };
+  };
+  let result = traverse(new Set());
+  // Conflicting partner hints must never turn a valid pedigree into a layout cycle.
+  // Fall back to ancestry for the affected groups, including downstream groups.
+  if (result.unresolved.size) result = traverse(result.unresolved);
+  return new Map(tree.people.map(person => [person.id, result.levels[groupOf.get(person.id)]]));
+}
+
+/** Suggestions are optional choices, never automatically recorded parentage. */
+export function getParentSuggestions(tree, selectedParentIds, excludedId) {
+  if (selectedParentIds.length !== 1) return [];
+  const selected = tree.people.find(person => person.id === selectedParentIds[0]);
+  if (!selected) return [];
+  const generation = getGenerations(tree).find(group => group.some(person => person.id === selected.id));
+  const sameGeneration = new Set(generation.map(person => person.id));
+  const partners = new Set(selected.partnerIds);
+  return tree.people.filter(person => person.id !== excludedId && !selectedParentIds.includes(person.id)
+    && (partners.has(person.id) || sameGeneration.has(person.id)))
+    .sort((a, b) => Number(partners.has(b.id)) - Number(partners.has(a.id))
+      || displayName(a).localeCompare(displayName(b), 'de') || a.id.localeCompare(b.id));
 }
 
 /** Order the tree by families without changing ancestry levels or stored data. */
