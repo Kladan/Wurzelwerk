@@ -1,6 +1,6 @@
 import { createTree, createPerson, validateTree, upsertPerson, deletePerson, displayName, getGenerations, getTreeGenerations, demoTree } from './domain.js';
 import { loadTree, saveTree, downloadFile, safeFilename, STORAGE_KEY } from './storage.js';
-import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup } from './report.js';
+import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup, fitTreePrintText } from './report.js';
 
 import { familyConnections, connectionMarkup } from './tree-layout.js';
 
@@ -210,7 +210,10 @@ window.addEventListener('beforeprint', () => {
   const output = document.createElement('div');
   output.id = 'tree-print-output';
   output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex });
+  output.style.cssText = 'display:block;position:fixed;visibility:hidden;pointer-events:none';
   document.body.append(output);
+  fitTreePrintText(output);
+  output.removeAttribute('style');
   document.body.classList.add('printing-tree');
 });
 window.addEventListener('afterprint', () => {

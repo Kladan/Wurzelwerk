@@ -294,6 +294,14 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
 #tree-print-output { display: none; }
+.tree-print { color: #263c32; font: 10pt/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.tree-print h1 { font: 400 12pt/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: normal; margin: 0 0 2mm; overflow-wrap: anywhere; }
+.tree-print header p { margin: 0 0 2mm; font-size: 8pt; color: #65745e; }
+.tree-print header p:first-child { font-size: 7pt; letter-spacing: 1.5px; font-weight: 600; }
+.tree-print svg { display: block; width: 265mm; max-width: 100%; height: auto; overflow: hidden; font-family: inherit; }
+.tree-print-card rect { fill: #f7f9f3; stroke: #c7d3bf; stroke-width: 1.4; }
+.tree-print-name { fill: #294b38; font-weight: 500; }
+.tree-print-dates, .tree-print-generation { fill: #64725d; }
 .print-index-option { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
 .print-index-option input { accent-color: var(--pine); }
 @page tree { size: A4 landscape; margin: 12mm; }
@@ -301,19 +309,15 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
 @media print {
   body.printing-tree #app { display: none !important; }
   #tree-print-output { display: block; }
-  .tree-print { page: tree; color: #17251d; font: 10pt/1.4 Arial, sans-serif; }
+  .tree-print { page: tree; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .tree-print-page { break-after: page; break-inside: avoid; }
   .tree-print-page:last-child { break-after: auto; }
-  .tree-print header p { margin: 0 0 2mm; font-size: 9pt; }
-  .tree-print h1 { font: 12pt/1.2 Georgia, serif; margin: 0 0 2mm; overflow-wrap: anywhere; }
-  .tree-print svg { display: block; width: 265mm; max-width: 100%; height: auto; overflow: hidden; font-family: Arial, sans-serif; }
   .tree-print .connection-halo path { stroke: white; stroke-width: 6; }
   .tree-print .connection-ink path { stroke: #354a30; stroke-width: 2; }
   .tree-print .connection-ink circle { fill: #354a30; }
   .tree-print-legend { font-size: 8pt; margin: 2mm 0 0; }
+  .tree-print-index ul { columns: 2; column-gap: 8mm; font-size: 8pt; line-height: 1.3; list-style: none; padding: 0; }
   .tree-print-index li { break-inside: avoid; overflow-wrap: anywhere; margin-bottom: 3mm; }
-  .tree-print-index ol { columns: 2; column-gap: 8mm; font-size: 8pt; line-height: 1.3; }
-  .tree-print-index li { margin-bottom: 2mm; }
   :root, body { background: white; color: #17251d; }
   .app-shell, .main { display: block; margin: 0; padding: 0; max-width: none; }
   .sidebar, .no-print, .page-header, .stats, .workspace, .toast, dialog, .toolbar, .view-tabs { display: none !important; }

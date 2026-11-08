@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTree, createPerson, validateTree, demoTree, getGenerations, getTreeGenerations, displayName } from '../src/domain.js';
+import { createTree, createPerson, validateTree, demoTree, displayName } from '../src/domain.js';
 import { loadTree, saveTree, safeFilename, STORAGE_KEY } from '../src/storage.js';
 import { escapeHtml, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup } from '../src/report.js';
 
@@ -128,26 +128,26 @@ test('tree print preserves data and covers every person and relationship across 
   const pages = (output.match(/class="tree-print-page"/g) ?? []).length;
   assert.ok(pages > 1);
   assert.equal((output.match(/<rect /g) ?? []).length, tree.people.length);
-  assert.equal((output.match(/<li value=/g) ?? []).length, tree.people.length);
+  assert.equal((output.match(/<li>/g) ?? []).length, tree.people.length);
   assert.ok(output.includes('<path d="M'));
-  const people = getTreeGenerations(tree).flat();
-  for (const person of people) {
-    assert.ok(output.includes(escapeHtml(displayName(person))));
-    const parents = person.parentIds.map(id => `[${people.findIndex(p => p.id === id) + 1}]`).join(', ') || 'offen';
-    const partners = person.partnerIds.map(id => `[${people.findIndex(p => p.id === id) + 1}]`).join(', ') || 'offen';
-    assert.ok(output.includes(`Eltern: ${parents} \u00b7 Partnerschaften: ${partners}`));
+  for (const person of tree.people) {
+    const entry = output.split('<li>').find(part => part.startsWith(`<strong>${escapeHtml(displayName(person))}`));
+    assert.ok(entry);
+    for (const id of [...person.parentIds, ...person.partnerIds]) {
+      assert.ok(entry.split('</li>')[0].includes(escapeHtml(displayName(tree.people.find(p => p.id === id)))));
+    }
   }
   assert.deepEqual(tree, before);
 });
 
-test('tree print escapes names and titles, retains long names and marks unknown dates', () => {
+test('tree print escapes names and titles, retains long names and leaves unknown dates blank', () => {
   const name = '<script>alert(1)</script>' + 'Lang'.repeat(100);
   const tree = createTree('</h1><img src="https://example.invalid">');
   tree.people.push(createPerson({ id: 'long', firstName: name }));
   const output = treePrintMarkup(tree);
   assert.ok(output.includes(escapeHtml(name)));
-  assert.ok(output.includes('Lebensdaten offen'));
-  assert.ok(output.includes('offen'));
+  assert.equal(output.includes('Lebensdaten offen'), false);
+  assert.equal(output.includes('offen'), false);
   assert.ok(output.includes('\u2026'));
   assert.equal(output.includes('<script>'), false);
   assert.equal(output.includes('<img'), false);
@@ -194,7 +194,7 @@ test('32 people in four generations fit one compact tree sheet with an optional 
   assert.ok(output.includes('Generation 4'));
   assert.equal(output.includes('tree-print-index'), false);
   const indexed = treePrintMarkup(tree, { includeIndex: true });
-  assert.equal((indexed.match(/<li value=/g) ?? []).length, 32);
+  assert.equal((indexed.match(/<li>/g) ?? []).length, 32);
   assert.deepEqual(tree, before);
 });
 
@@ -204,7 +204,7 @@ test('overflow cards continue on a second sheet without splitting or losing peop
   const output = treePrintMarkup(tree, { includeIndex: true });
   assert.equal((output.match(/class="tree-print-page"/g) ?? []).length, 2);
   assert.equal((output.match(/<rect /g) ?? []).length, 33);
-  assert.equal((output.match(/<li value=/g) ?? []).length, 33);
+  assert.equal((output.match(/<li>/g) ?? []).length, 33);
   for (const match of output.matchAll(/<rect x="(\d+)"[^>]+width="(\d+)"/g)) {
     assert.ok(Number(match[1]) % 1600 + Number(match[2]) < 1600);
   }
@@ -218,4 +218,38 @@ test('a wide sibling family prints only the visible branches on each sheet', () 
   assert.equal((output.match(/<rect /g) ?? []).length, 1000);
   assert.ok((output.match(/<path /g) ?? []).length < 8 * 1000);
   assert.ok(output.length < 2_000_000);
+});
+
+test('tree cards contain names and only known lifespan data without person numbers or parent text', () => {
+  const tree = createTree();
+  tree.people = [
+    createPerson({ id: 'unknown', firstName: 'Ohne Datum' }),
+    createPerson({ id: 'birth', firstName: 'Geburt', birthDate: '1950' }),
+    createPerson({ id: 'death', firstName: 'Tod', deathDate: '2001' }),
+    createPerson({ id: 'both', firstName: 'Beide', birthDate: '1920', deathDate: '1990', parentIds: ['unknown'] }),
+  ];
+  const output = treePrintMarkup(validateTree(tree));
+  assert.ok(output.includes('geb. 1950'));
+  assert.ok(output.includes('gest. 2001'));
+  assert.ok(output.includes('1920 – 1990'));
+  assert.equal(output.includes('Lebensdaten offen'), false);
+  assert.equal(output.includes('Eltern:'), false);
+  assert.equal(/\[\d+\]/.test(output), false);
+  assert.equal(output.includes('textLength='), false); // Natural text until measured overflow.
+});
+
+test('unlined ancestry gets an automatic named appendix with distinct locations for duplicate names', () => {
+  const tree = validateTree({ ...createTree(), people: [
+    createPerson({ id: 'a', firstName: 'Sam' }),
+    createPerson({ id: 'b', firstName: 'Sam', parentIds: ['a'] }),
+    createPerson({ id: 'c', firstName: 'Kind', parentIds: ['a', 'b'] }),
+  ] });
+  const output = treePrintMarkup(tree);
+  assert.ok(output.includes('tree-print-continuations'));
+  assert.ok(output.includes('Sam · Baumblatt 1, Generation 1, Karte 1 von links'));
+  assert.ok(output.includes('Sam · Baumblatt 1, Generation 2, Karte 1 von links'));
+  assert.equal(/\[\d+\]/.test(output), false);
+  const indexed = treePrintMarkup(tree, { includeIndex: true });
+  assert.equal(indexed.includes('tree-print-continuations'), false);
+  assert.equal((indexed.match(/<li>/g) ?? []).length, 3);
 });
