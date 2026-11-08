@@ -134,6 +134,66 @@ test('tree order keeps recorded partners together within the same generation', (
   assert.deepEqual(getTreeGenerations(tree)[0].map(p => p.id), ['a', 'z', 'b']);
 });
 
+test('parents follow child branches and married siblings face their partner across blocks', () => {
+  const person = (id, fields = {}) => createPerson({ id, firstName: id, ...fields });
+  const tree = validateTree({ ...createTree(), people: [
+    ...['a1', 'a2', 'b1', 'b2', 'c1', 'c2'].map(id => person(id)),
+    ...['aa', 'ab', 'ac'].map((id, i) => person(id, { parentIds: ['a1', 'a2'], birthDate: String(1980 + i), partnerIds: i === 0 ? ['ca'] : [] })),
+    ...['ba', 'bb', 'bc', 'bd'].map(id => person(id, { parentIds: ['b1', 'b2'] })),
+    person('ca', { parentIds: ['c1', 'c2'], partnerIds: ['aa'] }),
+    person('child', { parentIds: ['aa', 'ca'] }),
+  ] });
+  const before = structuredClone(tree);
+  const rows = getTreeGenerations(tree).map(row => row.map(p => p.id));
+  assert.deepEqual(rows, [
+    ['a1', 'a2', 'c1', 'c2', 'b1', 'b2'],
+    ['ab', 'ac', 'aa', 'ca', 'ba', 'bb', 'bc', 'bd'], ['child'],
+  ]);
+  const reversed = { ...tree, people: [...tree.people].reverse().map(p => ({ ...p,
+    parentIds: [...p.parentIds].reverse(), partnerIds: [...p.partnerIds].reverse() })) };
+  assert.deepEqual(getTreeGenerations(reversed).map(row => row.map(p => p.id)), rows);
+  assert.deepEqual(getTreeGenerations(tree).map(row => row.map(p => p.id)), rows);
+  assert.deepEqual(tree, before);
+  // Shared children give co-parents the same placement even without a recorded partnership.
+  const coParents = { ...tree, people: tree.people.map(p => ({ ...p, partnerIds: [] })) };
+  assert.deepEqual(getTreeGenerations(coParents).map(row => row.map(p => p.id)), rows);
+});
+
+test('siblings with partners on both sides use facing edges and preserve other birth order', () => {
+  const person = (id, fields = {}) => createPerson({ id, firstName: id, ...fields });
+  const tree = validateTree({ ...createTree(), people: [person('p'),
+    person('left', { partnerIds: ['s1'] }), person('right', { partnerIds: ['s2'] }),
+    ...['s1', 's2', 's3', 's4'].map((id, i) => person(id, { parentIds: ['p'],
+      birthDate: String(1980 + i), partnerIds: i < 2 ? [i === 0 ? 'left' : 'right'] : [] })),
+  ] });
+  const row = getTreeGenerations(tree)[1].map(p => p.id);
+  assert.equal(Math.abs(row.indexOf('left') - row.indexOf('s1')), 1);
+  assert.equal(Math.abs(row.indexOf('right') - row.indexOf('s2')), 1);
+  assert.equal(row.indexOf('s4') - row.indexOf('s3'), 1);
+});
+
+test('equal family anchors remain deterministic across permuted relationship arrays', () => {
+  const records = [
+    ['p2', 'B', '', [], ['p18']], ['p5', 'A', '1996', [], ['p17']],
+    ['p6', 'A', '', [], []], ['p7', 'C', '1979', [], []],
+    ['p9', 'B', '', ['p7'], []], ['p10', 'B', '1953', ['p2'], []],
+    ['p11', 'B', '1995', ['p10'], []], ['p12', 'B', '1981', ['p5'], []],
+    ['p13', 'A', '1969', ['p5'], []], ['p14', 'C', '', ['p7'], []],
+    ['p15', 'B', '1955', ['p6', 'p5'], []], ['p17', 'C', '', ['p2'], ['p5']],
+    ['p18', 'A', '1985', ['p2', 'p6'], ['p2']], ['p20', 'B', '1959', ['p15'], []],
+    ['p23', 'B', '1977', ['p2'], []],
+  ];
+  const tree = validateTree({ ...createTree(), people: records.map(([id, firstName, birthDate, parentIds, partnerIds]) =>
+    createPerson({ id, firstName, birthDate, parentIds, partnerIds })) });
+  const before = structuredClone(tree);
+  const reversed = { ...tree, people: [...tree.people].reverse().map(p => ({ ...p,
+    parentIds: [...p.parentIds].reverse(), partnerIds: [...p.partnerIds].reverse() })) };
+  const rows = getTreeGenerations(tree);
+  assert.deepEqual(getTreeGenerations(reversed).map(row => row.map(p => p.id)), rows.map(row => row.map(p => p.id)));
+  assert.deepEqual(rows.map(row => row.map(p => p.id).sort()), getGenerations(tree).map(row => row.map(p => p.id).sort()));
+  assert.deepEqual(tree, before);
+});
+
 test('a parentless partner joins generation three and descendants follow without invented ancestry', () => {
   const tree = demoTree();
   const original = structuredClone(tree);

@@ -284,8 +284,10 @@ export function getTreeGenerations(tree) {
     relatives.get(a).add(b);
     relatives.get(b).add(a);
   }
+  const children = new Map(tree.people.map(person => [person.id, []]));
+  for (const child of tree.people) for (const id of child.parentIds) children.get(id).push(child.id);
   const positions = new Map();
-  return generations.map(generation => {
+  const rows = generations.map(generation => {
     // Keep siblings with the same recorded parents as one indivisible block.
     const byParents = new Map();
     for (const person of generation) {
@@ -295,8 +297,7 @@ export function getTreeGenerations(tree) {
     }
     const blocks = [...byParents.values()].map(people => {
       people.sort(compareSiblings);
-      const parentPositions = people[0].parentIds.map(id => positions.get(id));
-      return { people, anchor: parentPositions.length ? parentPositions.reduce((sum, x) => sum + x, 0) / parentPositions.length : Infinity };
+      return { people, key: people[0], anchor: Infinity };
     });
     const blockOf = new Map(blocks.flatMap(block => block.people.map(person => [person.id, block])));
     const neighbors = new Map(blocks.map(block => [block, new Set()]));
@@ -304,7 +305,6 @@ export function getTreeGenerations(tree) {
       const other = blockOf.get(id);
       if (other && other !== blockOf.get(person.id)) neighbors.get(blockOf.get(person.id)).add(other);
     }
-    const compareBlocks = (a, b) => (a.anchor === b.anchor ? 0 : a.anchor - b.anchor) || compareNames(a.people[0], b.people[0]);
     const visited = new Set();
     const families = [];
     for (const block of blocks) {
@@ -314,15 +314,68 @@ export function getTreeGenerations(tree) {
       for (let i = 0; i < family.length; i++) for (const other of neighbors.get(family[i])) {
         if (!visited.has(other)) { visited.add(other); family.push(other); }
       }
-      family.sort(compareBlocks);
-      const anchors = family.map(member => member.anchor).filter(Number.isFinite);
-      families.push({ blocks: family, anchor: anchors.length ? anchors.reduce((sum, x) => sum + x, 0) / anchors.length : Infinity });
+      families.push({ blocks: family, key: family.flatMap(block => block.people).sort(compareNames)[0], anchor: Infinity });
     }
-    families.sort((a, b) => (a.anchor === b.anchor ? 0 : a.anchor - b.anchor) || compareNames(a.blocks[0].people[0], b.blocks[0].people[0]));
-    const ordered = families.flatMap(family => family.blocks.flatMap(block => block.people));
-    ordered.forEach((person, index) => positions.set(person.id, (index + 0.5) / ordered.length));
-    return ordered;
+    return { families, blockOf, neighbors };
   });
+  const mean = values => values.length ? values.reduce((sum, x) => sum + x, 0) / values.length : Infinity;
+  const compareAnchors = (a, b) => a === b ? 0 : a - b;
+  const updateRow = (rowIndex, upwards) => {
+    const { families, blockOf, neighbors } = rows[rowIndex];
+    const adjacent = new Set(generations[rowIndex + (upwards ? 1 : -1)]?.map(person => person.id) ?? []);
+    const targets = person => (upwards ? children.get(person.id) : person.parentIds)
+      .filter(id => adjacent.has(id)).map(id => positions.get(id));
+    for (const family of families) {
+      for (const block of family.blocks) block.anchor = mean(block.people.flatMap(targets));
+      family.anchor = mean(family.blocks.flatMap(block => block.people.flatMap(targets)));
+      // Use fixed birth/name keys, never the previous orientation, for ties.
+      family.blocks.sort((a, b) => compareAnchors(a.anchor, b.anchor) || compareNames(a.key, b.key));
+      // A partnership chain can satisfy every block adjacency. In particular,
+      // put two partners of different siblings on opposite sides of that block.
+      const ends = family.blocks.filter(block => neighbors.get(block).size === 1);
+      if (ends.length === 2 && family.blocks.every(block => neighbors.get(block).size <= 2)) {
+        const path = [];
+        let current = ends[0];
+        let previous = null;
+        while (current) {
+          path.push(current);
+          const next = [...neighbors.get(current)].find(block => block !== previous);
+          previous = current;
+          current = next;
+        }
+        const ranks = new Map(family.blocks.map((block, index) => [block, index]));
+        const cost = list => list.reduce((sum, block, index) => sum + Math.abs(index - ranks.get(block)), 0);
+        const reverse = [...path].reverse();
+        family.blocks = cost(path) <= cost(reverse) ? path : reverse;
+      }
+    }
+    families.sort((a, b) => compareAnchors(a.anchor, b.anchor) || compareNames(a.key, b.key));
+    const ordered = families.flatMap(family => family.blocks.flatMap(block => block.people));
+    const localPositions = new Map(ordered.map((person, index) => [person.id, index]));
+    for (const family of families) for (const block of family.blocks) {
+      const center = mean(block.people.map(person => localPositions.get(person.id)));
+      const side = person => {
+        const partners = [...relatives.get(person.id)].filter(id => blockOf.has(id) && blockOf.get(id) !== block);
+        // Unconnected siblings stay between the people needed at either edge.
+        return partners.length ? mean(partners.map(id => localPositions.get(id))) - center : 0;
+      };
+      const sides = new Map(block.people.map(person => [person.id, side(person)]));
+      block.people.sort((a, b) => sides.get(a.id) - sides.get(b.id) || compareSiblings(a, b));
+    }
+    const result = families.flatMap(family => family.blocks.flatMap(block => block.people));
+    // All targets are from one adjacent row. Integer ranks avoid input-order
+    // dependent rounding when equivalent parent/child anchors are averaged.
+    result.forEach((person, index) => positions.set(person.id, index));
+    return result;
+  };
+  let result = rows.map((_, index) => updateRow(index, false));
+  // Bounded two-way sweeps let parent branches follow married sibling blocks.
+  // Complex pedigrees can have incompatible adjacency wishes; never loop until convergence.
+  for (let pass = 0; pass < 3; pass++) {
+    for (let index = rows.length - 2; index >= 0; index--) result[index] = updateRow(index, true);
+    for (let index = 1; index < rows.length; index++) result[index] = updateRow(index, false);
+  }
+  return result;
 }
 
 export function demoTree() {

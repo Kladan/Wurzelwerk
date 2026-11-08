@@ -1,5 +1,15 @@
 # Umsetzungs- und Prüfnotiz
 
+## Kartenreihenfolge über mehrere Generationen (8. November 2026)
+
+Die Sortierung führt Elternzweige anhand der Kinderreihenfolge nach. Geschwister mit identischen Eltern bleiben zusammen; Partnerschaften und gemeinsame Eltern können einzelne Geschwister an den zugewandten Blockrand verschieben. Unbeteiligte Geschwister behalten ihre relative Geburts-/Namensreihenfolge. Einfache Partnerschaftsketten ordnen die beteiligten Blöcke nebeneinander an. Drei begrenzte Auf-/Abwärtsdurchläufe vermeiden unbeschränkte Optimierungsschleifen. Bildschirm und Baumdruck verwenden weiterhin dieselbe Reihenfolge.
+
+Ein unabhängiger Review-Agent prüfte den Ansatz und die Umsetzung. Sein Zufallstest fand einen Determinismusfehler durch Rundung normalisierter Anker. Ganzzahlige Kartenränge beheben ihn. Danach prüfte der Agent 2.000 validierte fiktive Bäume mit je 24 Personen und umgekehrter Personen-, Eltern- und Partnerreihenfolge ohne weitere blockierende Befunde. Drei neue Regressionstests decken drei Elternpaare mit verbundenen Geschwisterblöcken und gemeinsamen Kindern, Partner an beiden Blockrändern sowie gleiche Anker bei permutierten Eingaben ab. Bestehende Tests prüfen weiterhin Patchwork, Datenerhalt und Generationszugehörigkeit.
+
+Chrome Headless prüfte einen fiktiven 15-Personen-Baum: identische Reihenfolge auf Bildschirm und im Druck, fokussierbare Karten, keine Seitenüberbreite bei 390 Pixeln, unveränderter localStorage nach dem Druckzyklus und genau eine PDF-Seite. Bildschirmaufnahme und emulierte Druckansicht wurden visuell geprüft. Prüfdateien liegen ausschließlich im ignorierten lokalen Arbeitsverzeichnis. Keine Rasterprüfung der PDF selbst, kein physischer Ausdruck und keine vollständige Tastatur-/Screenreaderprüfung. Exakte geometrische Zentrierung, ein globales Kreuzungsminimum und sämtliche Nachbarschaftswünsche bei Mehrfachpartnerschaften sind nicht garantiert; kein Browserlasttest mit 5.000 Personen.
+
+Abschließend bestand `npm.cmd run check` mit 48 Tests, Syntaxprüfungen und statischem Build; `git diff --check` ohne Formatfehler.
+
 ## Rollen aus Generationen vorschlagen (8. November 2026)
 
 Die technische Leitung ergänzte eine reine Vorschlagsfunktion: Bei genau zwei benachbarten dargestellten Generationen wird die obere als Eltern und die untere als Kinder vorbelegt, sofern die gesamte Änderung gültig ist. Manuelle Änderungen und ausdrückliches Speichern bleiben möglich. Zwei neue Fachtests prüfen Auswahlreihenfolge, Partnergenerationen, Datenerhalt, mehrdeutige Auswahlen, Generationssprünge und Elternlimit. `npm.cmd run check` bestand mit 45 Tests und Build.
