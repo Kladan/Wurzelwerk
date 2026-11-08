@@ -342,16 +342,27 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
 .person-card > .original-names { font-size: 10px; margin: 3px 0; }
 .print-index-option { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
 .print-index-option input { accent-color: var(--pine); }
+.tree-print-options { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; min-width: 0; width: 100%; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.tree-print-options legend { font-size: 12px; color: var(--muted); }
+.tree-print-options p { width: 100%; margin: 0; font-size: 11px; color: var(--muted); }
+.tree-print-options select { font: inherit; color: inherit; max-width: 100%; padding: 5px; }
 .person-labels { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 .person-label { display: inline-block; max-width: 100%; padding: 2px 7px; border: 1px solid var(--line); border-radius: 9px; background: #f1f4ec; color: var(--pine); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .tree-print-labels { fill: #40553d; }
 .print-labels { display: block; overflow-wrap: anywhere; font-weight: 400; }
 @page tree { size: A4 landscape; margin: 12mm; }
+@page tree-a3 { size: A3 landscape; margin: 12mm; }
 @page { size: A4; margin: 18mm 17mm 20mm; }
 @media print {
   body.printing-tree #app { display: none !important; }
   #tree-print-output { display: block; }
   .tree-print { page: tree; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .tree-print-a3 { page: tree-a3; }
+  .tree-print-a3 svg { width: 388mm; }
+  .tree-print-single .tree-print-page { height: 185mm; display: flex; flex-direction: column; }
+  .tree-print-single.tree-print-a3 .tree-print-page { height: 272mm; }
+  .tree-print-single .tree-print-page > header, .tree-print-single .tree-print-legend { flex: 0 0 auto; }
+  .tree-print-single svg { width: 100%; height: 0; min-height: 0; flex: 1 1 0; }
   .tree-print-page { break-after: page; break-inside: avoid; }
   .tree-print-page:last-child { break-after: auto; }
   .tree-print .connection-halo path { stroke: white; stroke-width: 6; }

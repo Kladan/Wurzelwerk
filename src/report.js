@@ -50,23 +50,27 @@ export function reportDocument(tree, options = {}) {
 
 // Eight compact cards by four generations fit an A4 landscape tree sheet.
 // Page boundaries always fall between cards; the index is an optional appendix.
-export function treePrintMarkup(tree, { includeIndex = false, includeLabels = false } = {}) {
+export function treePrintMarkup(tree, { includeIndex = false, includeLabels = false, singlePage = false, paper = 'A4' } = {}) {
   const generations = getTreeGenerations(tree);
+  const rowsPerPage = singlePage ? Math.max(1, generations.length) : 4;
+  const columnsPerPage = singlePage ? Math.max(8, ...generations.map(g => g.length)) : 8;
+  const pageWidth = columnsPerPage * 200;
+  const pageHeight = singlePage ? rowsPerPage * 220 - 60 : 880;
   const nodes = new Map();
   const pages = [];
   const pageByTile = new Map();
-  for (let row = 0; row < generations.length; row += 4) {
-    const widest = Math.max(...generations.slice(row, row + 4).map(g => g.length));
-    for (let col = 0; col < Math.ceil(widest / 8); col++) {
+  for (let row = 0; row < generations.length; row += rowsPerPage) {
+    const widest = Math.max(...generations.slice(row, row + rowsPerPage).map(g => g.length));
+    for (let col = 0; col < Math.ceil(widest / columnsPerPage); col++) {
       const page = { row, col, cards: [], number: pages.length + 1 };
       pages.push(page);
       pageByTile.set(`${row}:${col}`, page);
     }
-    generations.slice(row, row + 4).forEach((generation, offset) => {
-      const start = Math.floor((Math.max(8, widest) - generation.length) / 2);
+    generations.slice(row, row + rowsPerPage).forEach((generation, offset) => {
+      const start = Math.floor((Math.max(columnsPerPage, widest) - generation.length) / 2);
       generation.forEach((person, index) => {
         const column = start + index;
-        const page = pageByTile.get(`${row}:${Math.floor(column / 8)}`);
+        const page = pageByTile.get(`${row}:${Math.floor(column / columnsPerPage)}`);
         const node = { person, row: row + offset,
           x: column * 200 + 7, y: (row + offset) * 220 + 28,
           width: 186, height: 118, page: page.number };
@@ -102,12 +106,12 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
     </section>` : disconnected.length ? `<section class="tree-print-index tree-print-continuations">${header('Verbindungen über Blatt- und Generationsgrenzen')}
     <p>Diese Elternbeziehungen lassen sich nicht vollständig durch Linien auf einem Baumblatt zeigen.</p>
     <ul>${disconnected.map(({ person }) => `<li><strong>${reference(person.id)}</strong><br>Eltern: ${refs(person.parentIds)}</li>`).join('')}</ul></section>` : '';
-  return `<article class="tree-print" aria-label="Stammbaum zum Drucken">${pages.map(({ row, col, cards, number }) => {
+  return `<article class="tree-print${singlePage ? ' tree-print-single' : ''}${paper === 'A3' ? ' tree-print-a3' : ''}" aria-label="Stammbaum zum Drucken">${pages.map(({ row, col, cards, number }) => {
     const visible = connections.filter(group => group.routeIds.some(id => nodes.get(id)?.page === number));
-    return `<section class="tree-print-page">${header(`Baumblatt ${number} von ${pages.length} · Generation ${row + 1}–${Math.min(row + 4, generations.length)} · Spalte ${col + 1}`)}
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${col * 1600} ${row * 220} 1600 880" role="img" aria-label="Personen und Familienlinien auf Baumblatt ${number}">
-      ${connectionMarkup(visible, null, { x: col * 1600, y: row * 220, width: 1600, height: 880 })}
-      ${[row, row + 1, row + 2, row + 3].filter(r => cards.some(node => node.row === r)).map(r => `<text class="tree-print-generation" x="${col * 1600 + 7}" y="${r * 220 + 17}" font-size="13">Generation ${r + 1}</text>`).join('')}
+    return `<section class="tree-print-page">${header(`Baumblatt ${number} von ${pages.length} · Generation ${row + 1}–${Math.min(row + rowsPerPage, generations.length)}${singlePage ? ' · Gesamtbaum' : ` · Spalte ${col + 1}`}`)}
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${col * pageWidth} ${row * 220} ${pageWidth} ${pageHeight}" role="img" aria-label="Personen und Familienlinien auf Baumblatt ${number}">
+      ${connectionMarkup(visible, null, { x: col * pageWidth, y: row * 220, width: pageWidth, height: pageHeight })}
+      ${Array.from({ length: Math.min(rowsPerPage, generations.length - row) }, (_, i) => row + i).filter(r => cards.some(node => node.row === r)).map(r => `<text class="tree-print-generation" x="${col * pageWidth + 7}" y="${r * 220 + 17}" font-size="13">Generation ${r + 1}</text>`).join('')}
       ${cards.map(({ person, x, y }) => {
         const name = Array.from(displayName(person));
         const lines = [name.slice(0, 21).join(''), name.slice(21, 42).join('') + (name.length > 42 ? '…' : '')];

@@ -20,6 +20,14 @@ let undoTree = null;
 let toastTimer;
 let includeTreeIndex = false;
 let includeLabels = false;
+let singlePageTree = false;
+let treePaper = 'A4';
+const treePrintOptions = () => `<fieldset class="tree-print-options"><legend>Baumdruck</legend>
+  <label class="print-index-option"><input type="checkbox" id="print-tree-single" ${singlePageTree ? 'checked' : ''} aria-describedby="tree-print-hint"> Gesamten Baum auf eine Seite</label>
+  <label class="print-index-option">Papier <select id="print-tree-paper"><option value="A4" ${treePaper === 'A4' ? 'selected' : ''}>A4 quer</option><option value="A3" ${treePaper === 'A3' ? 'selected' : ''}>A3 quer</option></select></label>
+  <label class="print-index-option"><input type="checkbox" id="print-tree-index" ${includeTreeIndex ? 'checked' : ''}> Verzeichnis im PDF</label>
+  <p id="tree-print-hint">Eine Seite: Bei großen Bäumen wird die Schrift klein; A3 bietet mehr Platz. Verzeichnis, lange Labels und Beziehungen über Generationsgrenzen können zusätzliche Anhangseiten erzeugen.</p>
+  </fieldset>`;
 const labelOption = () => `<label class="print-index-option"><input type="checkbox" id="include-labels" ${includeLabels ? "checked" : ""}> Labels ausgeben</label>`;
 const personById = id => tree.people.find(p => p.id === id);
 const icon = name => ({ tree: '♧', people: '☷', report: '▤', plus: '+', backup: '↓', import: '↑' })[name];
@@ -153,7 +161,7 @@ function render() {
     <main class="main"><header class="page-header no-print"><div><p class="eyebrow">VERGANGENHEIT BEWAHREN. VERBINDUNGEN ENTDECKEN.</p><h1>${e(tree.title)}</h1><p class="page-subtitle">${view === 'report' ? 'Eine Familiengeschichte zum Aufbewahren und Weitergeben.' : 'Jeder Mensch ein Kapitel. Gemeinsam eine Geschichte.'}</p></div><div class="header-actions">${action('rename', 'Titel ändern', 'ghost')}${view === 'report' ? action('print', 'Drucken / PDF', 'primary') : action('print', 'Baum drucken / PDF', 'secondary') + action('add', '+ Person hinzufügen', 'primary')}</div></header>
     ${loadError ? `<div class="notice error no-print" role="alert">${e(loadError)} ${action('raw', 'Rohdaten sichern', 'secondary small')}</div>` : ''}
     <section class="stats no-print" aria-label="Stammbaum in Zahlen"><div class="stat"><span class="stat-value">${tree.people.length}</span><span>Menschen im Stammbaum</span></div><div class="stat"><span class="stat-value">${generations.length}</span><span>erfasste Generationen</span></div><div class="stat"><span class="stat-value">${new Set(tree.people.map(p => p.birthPlace).filter(Boolean)).size}</span><span>Geburtsorte</span></div><div class="stat privacy-stat"><span class="stat-value">Lokal.</span><span>Deine Daten bleiben bei dir</span></div></section>
-    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${labelOption()}${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree, { includeLabels }) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div>${view === 'tree' && tree.people.length ? action('expandTree', expandedTree ? 'Ansicht verkleinern' : 'Baum vergrößern', 'secondary small', `aria-pressed="${expandedTree}" title="Große Baumansicht; mit Escape verlassen"`) : ''}${labelOption()}<label class="print-index-option"><input type="checkbox" id="print-tree-index" ${includeTreeIndex ? 'checked' : ''}> Verzeichnis im PDF</label><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
+    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${labelOption()}${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree, { includeLabels }) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div>${view === 'tree' && tree.people.length ? action('expandTree', expandedTree ? 'Ansicht verkleinern' : 'Baum vergrößern', 'secondary small', `aria-pressed="${expandedTree}" title="Große Baumansicht; mit Escape verlassen"`) : ''}${labelOption()}${treePrintOptions()}<label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
     <footer class="app-footer no-print"><span>WURZELWERK</span><span>${loadError ? 'Speicherung prüfen' : 'Änderungen werden in diesem Browser lokal gespeichert.'}</span>${undoTree ? action('undo', 'Letzte Löschung rückgängig', 'ghost small') : ''}</footer></main></div>`;
   if (view === 'tree' && !query) requestAnimationFrame(() => {
     const scroll = document.querySelector('.tree-scroll');
@@ -299,6 +307,8 @@ app.addEventListener('change', event => {
     app.querySelector('#include-labels')?.focus();
   }
   if (event.target.id === 'print-tree-index') includeTreeIndex = event.target.checked;
+  if (event.target.id === 'print-tree-single') singlePageTree = event.target.checked;
+  if (event.target.id === 'print-tree-paper') treePaper = event.target.value === 'A3' ? 'A3' : 'A4';
 });
 
 app.addEventListener('input', event => {
@@ -334,7 +344,7 @@ window.addEventListener('beforeprint', () => {
   printFocus = document.activeElement;
   const output = document.createElement('div');
   output.id = 'tree-print-output';
-  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex, includeLabels });
+  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex, includeLabels, singlePage: singlePageTree, paper: treePaper });
   output.style.cssText = 'display:block;position:fixed;visibility:hidden;pointer-events:none';
   document.body.append(output);
   fitTreePrintText(output);

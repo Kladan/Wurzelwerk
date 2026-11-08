@@ -273,6 +273,46 @@ function fourGenerationTree() {
   return validateTree(tree);
 }
 
+test('single-page tree fits ten people per generation and all six generations without changing data', () => {
+  const tree = createTree('Fiktiver Gesamtbaum');
+  for (let row = 0; row < 6; row++) for (let col = 0; col < 10; col++) {
+    tree.people.push(createPerson({ id: `g${row}p${col}`, firstName: `Person ${row}.${col}`,
+      parentIds: row ? [`g${row - 1}p${col}`] : [] }));
+  }
+  const before = structuredClone(tree);
+  for (const paper of ['A4', 'A3']) {
+    const output = treePrintMarkup(validateTree(tree), { singlePage: true, paper });
+    assert.equal((output.match(/class="tree-print-page"/g) ?? []).length, 1);
+    assert.equal((output.match(/<rect /g) ?? []).length, 60);
+    assert.ok(output.includes('viewBox="0 0 2000 1260"'));
+    assert.ok(output.includes('Generation 6'));
+    assert.ok(output.includes('<path d="M'));
+    assert.equal(output.includes('tree-print-index'), false);
+    assert.equal(output.includes('tree-print-a3'), paper === 'A3');
+    const indexed = treePrintMarkup(tree, { singlePage: true, paper, includeIndex: true });
+    assert.equal((indexed.match(/<li>/g) ?? []).length, 60);
+  }
+  assert.deepEqual(tree, before);
+});
+
+test('single-page tree preserves references for skipped generations and full labels in appendices', () => {
+  const tree = validateTree({ ...createTree('<Fiktiv>'), people: [
+    createPerson({ id: 'a', firstName: 'Sam' }),
+    createPerson({ id: 'b', firstName: 'Sam', parentIds: ['a'] }),
+    createPerson({ id: 'c', firstName: '<Kind>', parentIds: ['a', 'b'], labels: ['L'.repeat(60)] }),
+  ] });
+  const output = treePrintMarkup(tree, { singlePage: true, includeLabels: true });
+  assert.equal((output.match(/class="tree-print-page"/g) ?? []).length, 1);
+  assert.ok(output.includes('tree-print-continuations'));
+  assert.ok(output.includes('Sam · Baumblatt 1, Generation 1, Karte 1 von links'));
+  assert.ok(output.includes('Sam · Baumblatt 1, Generation 2, Karte 1 von links'));
+  assert.ok(output.includes('L'.repeat(60)));
+  assert.ok(output.includes('&lt;Kind&gt;'));
+  assert.equal(output.includes('<Kind>'), false);
+  assert.ok(treePrintMarkup(createTree(), { singlePage: true }).includes('Noch keine Personen erfasst.'));
+  assert.equal(treePrintMarkup(tree, { singlePage: true, paper: 'A3" onload="bad' }).includes('onload='), false);
+});
+
 test('32 people in four generations fit one compact tree sheet with an optional index', () => {
   const tree = fourGenerationTree();
   const before = structuredClone(tree);
