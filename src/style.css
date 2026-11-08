@@ -238,6 +238,27 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
 .toolbar > p { font-size: 11px; color: var(--muted); margin: 0; }
 
 @media (min-width: 1500px) { .main { padding: 48px 54px; } .workspace { grid-template-columns: minmax(0, 1fr) 340px; } }
+@media screen {
+  .tree-view .main { max-width: none; }
+  .tree-view .tree-scroll { max-height: max(660px, calc(100dvh - 420px)); }
+  .tree-expanded { grid-template-columns: minmax(0, 1fr); }
+  .tree-expanded > .sidebar,
+  .tree-expanded .page-header,
+  .tree-expanded .stats,
+  .tree-expanded .app-footer { display: none; }
+  .tree-expanded .main { padding: 16px; }
+}
+@media screen and (min-width: 1151px) {
+  .tree-expanded .main { height: 100dvh; display: flex; flex-direction: column; }
+  .tree-expanded .main > .toolbar { flex-shrink: 0; }
+  .tree-expanded .workspace { flex: 1; min-height: 0; align-items: stretch; }
+  .tree-expanded .tree-panel { display: flex; flex-direction: column; min-width: 0; }
+  .tree-expanded .tree-panel > :not(.tree-scroll):not(.person-list) { flex-shrink: 0; }
+  .tree-expanded .tree-scroll,
+  .tree-expanded .person-list { flex: 1; min-height: 0; max-height: none; overflow: auto; }
+  .tree-expanded .tree-canvas { min-height: 100%; }
+  .tree-expanded .detail-panel { overflow: auto; }
+}
 @media (max-width: 1150px) {
   .app-shell { grid-template-columns: 196px minmax(0, 1fr); }
   .sidebar { padding-left: 13px; padding-right: 13px; }

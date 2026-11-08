@@ -1,5 +1,7 @@
 # Konkrete Grenzen und nächste Schritte
 
+- **Große Baumansicht:** Fensterfüllendes Layout ab 1151 Pixeln, darunter normaler Seitenfluss; Chrome mit 96 fiktiven Personen und acht Generationen auf 2560 × 1440 sowie 390 × 844 Pixeln geprüft. Keine anderen Browser, Screenreader oder extremen Browserzoomstufen geprüft. Die Ansicht besitzt keine eigene Zoomsteuerung und keine ausblendbare Detailspalte.
+
 - **Labels:** Freie Begriffe ohne automatische Deutung, Filter oder Belegprüfung. Die Ausgabeoption gilt nur für die laufende Sitzung; JSON-Sicherungen enthalten stets alle Labels. Chrome-Prüfung umfasst Tastaturreihenfolge/Fokus, 390-Pixel-Layout mit 20 langen Labels, Speichererhalt beim Druck und eine A4-PDF mit kurzen Labels. Lange Labelzeilen werden auf Druckkarten gekürzt und vollständig im Anhang ausgegeben. Keine visuelle Rasterprüfung der PDF, kein physischer Ausdruck und keine Prüfung anderer Browser oder Screenreader.
 
 - **Spitznamen:** Die getrennte Anzeige echter Vornamen ist mit Chrome Headless auf schmalem Bildschirm und im A4-Baumdruck geprüft; Screenreader, andere Browser und physischer Ausdruck fehlen. Lange Vornamen werden auf Baumdruckkarten nach 26 Zeichen gekürzt und bei Bedarf in der Breite angepasst. Das optionale Verzeichnis enthält sie vollständig. Beziehungen zeigen den bevorzugten Namen; bei gleichnamigen Personen bleiben im Druckanhang Blatt, Generation und Kartenposition zur Unterscheidung erhalten.

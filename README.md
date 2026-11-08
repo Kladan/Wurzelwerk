@@ -29,6 +29,8 @@ Die Generation ergibt sich vorrangig aus den erfassten Elternbeziehungen. Ohne e
 
 Bei einer Auswahl aus genau zwei benachbarten dargestellten Generationen sind die Rollen bereits vorgeschlagen: oben Eltern, darunter Kinder. Der Vorschlag berücksichtigt bestehende Eltern und muss als gesamte Änderung gültig sein. Rollen bleiben änderbar; erst **Verknüpfungen speichern** übernimmt die Beziehungen. Bei derselben Generation, übersprungenen Generationen oder ungültigen Vorschlägen bleiben die Felder offen. Die dargestellte Generation allein belegt keine Verwandtschaft.
 
+Auf großen Bildschirmen nutzt der Stammbaum die verfügbare Breite. **Baum vergrößern** blendet Navigation, Kopfbereich und Übersichtszahlen aus und nutzt auf Desktopbildschirmen die Fensterhöhe für den Arbeitsbereich. Suche und Personendetails bleiben erreichbar. **Ansicht verkleinern** oder **Escape** stellt die normale Ansicht wieder her; in einem geöffneten Dialog schließt Escape zuerst den Dialog. Die Einstellung gilt für die laufende Sitzung.
+
 ## Speichern und sichern
 
 Unter **Person bearbeiten** kannst du optionale **Labels** erfassen, eines pro Zeile, etwa „Krieg“ für eine Person, die im Krieg war. Bis zu 20 Labels mit je 60 Zeichen sind möglich. Einzelheiten und Belege gehören in Erinnerungen und Quellen. Leere Zeilen entfallen; identische Labels werden zusammengefasst. Zum Entfernen die entsprechende Zeile löschen und speichern.

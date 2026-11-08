@@ -1,5 +1,14 @@
 # Umsetzungs- und Prüfnotiz
 
+## Mehr Baumfläche auf großen Monitoren (8. November 2026)
+
+Die Baumansicht nutzt die verfügbare Breite ohne das bisherige Maximum von 1780 Pixeln; ihre maximale Scrollhöhe wächst mit hohen Fenstern. „Baum vergrößern“ blendet Navigation, Kopfbereich, Statistik und Fußzeile aus. Ab 1151 Pixeln stehen Baum und separat scrollbar bleibende Details in der verfügbaren Fensterhöhe. Auf schmalen Bildschirmen bleibt der Arbeitsbereich im normalen Seitenfluss. Die Umschaltung hält nur Sitzungszustand und schreibt keine Familiendaten.
+
+Eigene technische und visuelle Prüfung in Chrome Headless mit isoliertem Profil und 96 fiktiven Personen über acht Generationen: Bei 2560 × 1440 Pixeln wächst die sichtbare Baumfläche von 1838 × 1020 auf 2163 × 1104 Pixel. Geprüft wurden Umschalten per Enter, Rückkehr per Escape mit Fokus auf der Schaltfläche, Erhalt der Scrollposition beim Umschalten, Auswahl und Personendetails, Suche mit erreichbarer Rückkehrschaltfläche sowie Escape im Personendialog ohne Verlassen der großen Ansicht. Bei 390 × 844 Pixeln entstand in beiden Modi kein horizontaler Seitenüberlauf; Desktop- und Mobilaufnahmen wurden visuell geprüft. Die Druckausgabe ließ sich auch aus der großen Ansicht als PDF erzeugen und kehrte anschließend in diese Ansicht zurück. Der gespeicherte Stammbaum blieb bytegleich. Prüfdateien liegen ausschließlich unter dem ignorierten `.local/`.
+
+`npm.cmd run check` bestand mit 54 Tests, Syntaxprüfungen und statischem Build; `git diff --check` bestand. Prüfgrenzen: keine Rasterprüfung der PDF, kein physischer Ausdruck, keine anderen Browser oder Screenreader. Kein unabhängiger Agentenreview für diese kleine Oberflächenänderung. Die Vergrößerung ist eine Ansicht innerhalb des Browserfensters; Zoom und ausblendbare Personendetails sind nicht Bestandteil dieser Änderung.
+
+
 ## Optionale Labels (8. November 2026)
 
 Labels sind pro Person als begrenzte Textliste erfasst und werden bei Import und Speicherung ausdrücklich projiziert. Alte Dateien erhalten eine leere Liste. Die Ausgabe auf Karten, in der Chronik, beim Baumdruck und beim HTML-Download ist standardmäßig deaktiviert. Lange Drucklabels erscheinen vollständig in einem automatischen Anhang. JSON-Sicherungen behalten sämtliche Labels unabhängig von der Ausgabeoption.

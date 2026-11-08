@@ -10,6 +10,7 @@ let tree;
 let loadError = '';
 try { tree = loadTree(); } catch { tree = createTree(); loadError = 'Die lokale Speicherung ist nicht lesbar oder nicht verfügbar. Sichere zuerst die Rohdaten. Über „Sicherung öffnen“ kannst du anschließend eine gültige Sicherung zur Wiederherstellung einlesen. Bestehende Daten bleiben bis zur bestätigten Wiederherstellung erhalten.'; }
 let view = 'tree';
+let expandedTree = false;
 let selectedId = tree.people[0]?.id;
 let selectedIds = new Set(selectedId ? [selectedId] : []);
 let selectionAnchor = selectedId;
@@ -147,12 +148,12 @@ function render() {
   const oldScroll = document.querySelector('.tree-scroll');
   const scrollPosition = oldScroll ? [oldScroll.scrollLeft, oldScroll.scrollTop] : null;
   const generations = getGenerations(tree);
-  app.innerHTML = `<div class="app-shell"><aside class="sidebar no-print"><a class="brand" href="/" aria-label="Wurzelwerk Start"><img class="brand-mark" src="/favicon.svg" alt=""><span>Wurzelwerk<small>Deine Familiengeschichte</small></span></a><div class="sidebar-label">MEIN FAMILIENARCHIV</div><nav aria-label="Ansichten">${[['tree','Stammbaum'],['people','Personen'],['report','Familienchronik']].map(([key,label]) => `<button class="nav-button ${view === key ? 'active' : ''}" data-view="${key}" ${view === key ? 'aria-current="page"' : ''}><span aria-hidden="true">${icon(key)}</span>${label}</button>`).join('')}</nav>
+  app.innerHTML = `<div class="app-shell ${view === 'tree' ? 'tree-view' : ''} ${expandedTree && view === 'tree' && tree.people.length ? 'tree-expanded' : ''}"><aside class="sidebar no-print"><a class="brand" href="/" aria-label="Wurzelwerk Start"><img class="brand-mark" src="/favicon.svg" alt=""><span>Wurzelwerk<small>Deine Familiengeschichte</small></span></a><div class="sidebar-label">MEIN FAMILIENARCHIV</div><nav aria-label="Ansichten">${[['tree','Stammbaum'],['people','Personen'],['report','Familienchronik']].map(([key,label]) => `<button class="nav-button ${view === key ? 'active' : ''}" data-view="${key}" ${view === key ? 'aria-current="page"' : ''}><span aria-hidden="true">${icon(key)}</span>${label}</button>`).join('')}</nav>
     <div class="sidebar-bottom"><div class="privacy-badge"><span aria-hidden="true">◉</span> Nur auf diesem Rechner</div><p>Deine Geschichte gehört dir.<br>Ohne Konto. Ohne Cloud.</p>${action('backup', '↓ Sicherung speichern', 'sidebar-action')}${action('import', '↑ Sicherung öffnen', 'sidebar-action')}${action('new', 'Neuer Stammbaum', 'sidebar-action')}<small>Browserdaten sind kein Backup.<br>Sichere deine Arbeit regelmäßig.</small></div></aside>
     <main class="main"><header class="page-header no-print"><div><p class="eyebrow">VERGANGENHEIT BEWAHREN. VERBINDUNGEN ENTDECKEN.</p><h1>${e(tree.title)}</h1><p class="page-subtitle">${view === 'report' ? 'Eine Familiengeschichte zum Aufbewahren und Weitergeben.' : 'Jeder Mensch ein Kapitel. Gemeinsam eine Geschichte.'}</p></div><div class="header-actions">${action('rename', 'Titel ändern', 'ghost')}${view === 'report' ? action('print', 'Drucken / PDF', 'primary') : action('print', 'Baum drucken / PDF', 'secondary') + action('add', '+ Person hinzufügen', 'primary')}</div></header>
     ${loadError ? `<div class="notice error no-print" role="alert">${e(loadError)} ${action('raw', 'Rohdaten sichern', 'secondary small')}</div>` : ''}
     <section class="stats no-print" aria-label="Stammbaum in Zahlen"><div class="stat"><span class="stat-value">${tree.people.length}</span><span>Menschen im Stammbaum</span></div><div class="stat"><span class="stat-value">${generations.length}</span><span>erfasste Generationen</span></div><div class="stat"><span class="stat-value">${new Set(tree.people.map(p => p.birthPlace).filter(Boolean)).size}</span><span>Geburtsorte</span></div><div class="stat privacy-stat"><span class="stat-value">Lokal.</span><span>Deine Daten bleiben bei dir</span></div></section>
-    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${labelOption()}${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree, { includeLabels }) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div>${labelOption()}<label class="print-index-option"><input type="checkbox" id="print-tree-index" ${includeTreeIndex ? 'checked' : ''}> Verzeichnis im PDF</label><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
+    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${labelOption()}${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree, { includeLabels }) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div>${view === 'tree' && tree.people.length ? action('expandTree', expandedTree ? 'Ansicht verkleinern' : 'Baum vergrößern', 'secondary small', `aria-pressed="${expandedTree}" title="Große Baumansicht; mit Escape verlassen"`) : ''}${labelOption()}<label class="print-index-option"><input type="checkbox" id="print-tree-index" ${includeTreeIndex ? 'checked' : ''}> Verzeichnis im PDF</label><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
     <footer class="app-footer no-print"><span>WURZELWERK</span><span>${loadError ? 'Speicherung prüfen' : 'Änderungen werden in diesem Browser lokal gespeichert.'}</span>${undoTree ? action('undo', 'Letzte Löschung rückgängig', 'ghost small') : ''}</footer></main></div>`;
   if (view === 'tree' && !query) requestAnimationFrame(() => {
     const scroll = document.querySelector('.tree-scroll');
@@ -253,6 +254,11 @@ async function importBackup(file) {
 }
 
 const actions = {
+  expandTree: () => {
+    expandedTree = !expandedTree;
+    render();
+    app.querySelector('[data-action="expandTree"]')?.focus({ preventScroll: true });
+  },
   multiple: () => { multipleSelection = !multipleSelection; render(); app.querySelector('[data-action="multiple"]')?.focus(); },
   clearSelection: () => { selectedIds.clear(); selectionAnchor = undefined; render(); app.querySelector('[data-action="multiple"]')?.focus(); },
   linkPartners: () => linkSelection('partner'),
@@ -302,6 +308,12 @@ app.addEventListener('input', event => {
   render();
   const search = document.querySelector('#search');
   search.focus(); search.setSelectionRange(position, position);
+});
+window.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !editor.open && app.querySelector('.tree-expanded')) {
+    event.preventDefault();
+    actions.expandTree();
+  }
 });
 window.addEventListener('resize', drawConnections);
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY || event.key === null) notify('Änderung in einem anderen Fenster erkannt. Bitte diese Seite neu laden, bevor du weiter speicherst.'); });
