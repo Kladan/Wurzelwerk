@@ -53,8 +53,9 @@ test('crowded generations retain twelve-pixel lanes and all card endpoints', () 
   const before = structuredClone(tree);
   const families = familyConnections(tree, nodes);
   const lanes = [];
+  assertSeparateVerticals(families);
   for (const family of families) {
-    assert.equal(family.curves.length, 2);
+    assert.ok(family.curves.length >= 2);
     assert.equal(family.junctions.length, 0); // A bend is not a branch.
     const p = nodes.get(family.parentIds[0]), c = nodes.get(family.children[0]);
     assert.ok(family.segments.some(s => s.x1 === p.x + 90 && s.y1 === 120));
@@ -62,9 +63,64 @@ test('crowded generations retain twelve-pixel lanes and all card endpoints', () 
     for (const curve of family.curves) lanes.push(curve.corner.y);
   }
   const distinctLanes = [...new Set(lanes)].sort((a, b) => a - b);
-  assert.equal(distinctLanes.length, 16);
+  assert.equal(distinctLanes.length, 32);
   for (let i = 1; i < distinctLanes.length; i++) assert.ok(distinctLanes[i] - distinctLanes[i - 1] >= 12);
   assert.deepEqual(tree, before);
+});
+
+function assertSeparateVerticals(families) {
+  for (let i = 0; i < families.length; i++) for (let j = i + 1; j < families.length; j++) {
+    for (const a of families[i].segments.filter(s => s.x1 === s.x2)) {
+      for (const b of families[j].segments.filter(s => s.x1 === s.x2)) {
+        const overlap = Math.min(Math.max(a.y1, a.y2), Math.max(b.y1, b.y2)) - Math.max(Math.min(a.y1, a.y2), Math.min(b.y1, b.y2));
+        assert.ok(a.x1 !== b.x1 || overlap <= 0, `Unrelated verticals share x=${a.x1}`);
+      }
+    }
+  }
+}
+
+test('nested parent pairs and foreign child stems never share a vertical track', () => {
+  const person = (id, parentIds = []) => createPerson({ id, firstName: id, parentIds });
+  const tree = { people: [person('a'), person('b'), person('c'), person('d'),
+    person('ad', ['a', 'd']), person('bc', ['b', 'c'])] };
+  const nodes = new Map();
+  ['a', 'b', 'c', 'd'].forEach((id, i) => nodes.set(id, { x: i * 200, y: 0, width: 180, height: 120, row: 0 }));
+  nodes.set('ad', { x: 200, y: 240, width: 180, height: 120, row: 1 });
+  nodes.set('bc', { x: 400, y: 240, width: 180, height: 120, row: 1 });
+  const before = structuredClone(tree);
+  const families = familyConnections(tree, nodes);
+  assertSeparateVerticals(families);
+  assert.ok(families.every(f => f.segments.length));
+  const geometry = JSON.stringify(families);
+  connectionMarkup(families, 'ad'); connectionMarkup(families, 'bc');
+  assert.equal(JSON.stringify(families), geometry); // Selection cannot change routes.
+  assert.deepEqual(tree, before);
+});
+
+test('shared parents have separate card ports and shifted trunks stay attached to their buses', () => {
+  const person = (id, parentIds = []) => createPerson({ id, firstName: id, parentIds });
+  const tree = { people: [person('p'), person('q'), person('r'),
+    person('pq', ['p', 'q']), person('pr', ['p', 'r']), person('single', ['p'])] };
+  const nodes = new Map();
+  ['p', 'q', 'r'].forEach((id, i) => nodes.set(id, { x: i * 200, y: 0, width: 180, height: 120, row: 0 }));
+  ['pq', 'pr', 'single'].forEach((id, i) => nodes.set(id, { x: i * 200, y: 280, width: 180, height: 120, row: 1 }));
+  const families = familyConnections(tree, nodes);
+  assertSeparateVerticals(families);
+  const ports = families.map(f => f.segments.find(s => s.y1 === 120 && s.x1 < 180).x1).sort((a, b) => a - b);
+  assert.deepEqual(ports, [78, 90, 102]);
+  for (const family of families) {
+    // Every piece, including curves, is reachable from the original parent card.
+    const pieces = [...family.segments.map(s => [[s.x1, s.y1], [s.x2, s.y2]]),
+      ...family.curves.map(c => [[c.start.x, c.start.y], [c.end.x, c.end.y]])];
+    const reached = new Set([pieces[0][0].join(':')]);
+    for (let i = 0; i < pieces.length; i++) for (const [a, b] of pieces) {
+      if (reached.has(a.join(':'))) reached.add(b.join(':'));
+      if (reached.has(b.join(':'))) reached.add(a.join(':'));
+    }
+    assert.ok(pieces.every(pair => pair.every(p => reached.has(p.join(':')))));
+    const print = connectionMarkup([family], null, { x: 0, y: 0, width: 600, height: 400 });
+    assert.ok(print.includes(' Q'));
+  }
 });
 
 test('aligned single-parent connections stay straight and sibling buses keep their branches', () => {

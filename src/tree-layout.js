@@ -22,11 +22,42 @@ export function familyConnections(tree, nodes) {
     const list = rows.get(group.row) ?? [];
     list.push(group); rows.set(group.row, list);
   }
+  const routes = new Map();
+  for (const lanes of rows.values()) {
+    const uses = new Map();
+    for (const group of lanes) for (const id of group.parentIds) {
+      if (nodes.get(id)?.row !== group.row - 1) continue;
+      if (!uses.has(id)) uses.set(id, []);
+      uses.get(id).push(group);
+    }
+    const anchors = [];
+    for (const group of lanes) {
+      const parents = group.parentIds.filter(id => uses.has(id)).map(id => nodes.get(id));
+      const px = group.parentIds.filter(id => uses.has(id)).map(id => {
+        const node = nodes.get(id), families = uses.get(id);
+        const step = families.length > 1 ? Math.min(laneSpacing, Math.max(0, node.width - 32) / (families.length - 1)) : 0;
+        return node.x + node.width / 2 + (families.indexOf(group) - (families.length - 1) / 2) * step;
+      });
+      const cx = group.children.map(id => nodes.get(id).x + nodes.get(id).width / 2);
+      routes.set(group, { parents, px, cx });
+      anchors.push(...[...px, ...cx].map(x => ({ x, group })));
+    }
+    const columns = [];
+    for (const group of lanes) {
+      const route = routes.get(group);
+      if (!route.parents.length) continue;
+      const cards = [...route.parents, ...group.children.map(id => nodes.get(id))];
+      const preferred = (Math.min(...route.px) + Math.max(...route.px)) / 2;
+      route.joint = freeColumn(preferred, [...anchors.filter(a => a.group !== group).map(a => a.x), ...columns],
+        Math.min(...cards.map(c => c.x)) + 16, Math.max(...cards.map(c => c.x + c.width)) - 16);
+      columns.push(route.joint);
+    }
+  }
   return groups.map((group, index) => {
     const children = group.children.map(id => nodes.get(id));
     // Long links would run through unrelated cards. Card references retain these
     // relationships explicitly, rather than implying a different generation.
-    const parents = group.parentIds.map(id => nodes.get(id)).filter(node => node && node.row === group.row - 1);
+    const { parents, px, cx, joint } = routes.get(group);
     const routeIds = group.parentIds.filter(id => nodes.get(id)?.row === group.row - 1);
     const result = { ...group, index, paths: [], segments: [], junctions: [], linkedIds: [...group.parentIds, ...group.children],
       routeIds: [...routeIds, ...group.children] };
@@ -41,22 +72,41 @@ export function familyConnections(tree, nodes) {
     const inset = (gap - (2 * lanes.length - 1) * spacing) / 2;
     const parentY = bottom + inset + lanes.indexOf(group) * spacing;
     const childY = parentY + lanes.length * spacing;
-    const px = parents.map(p => p.x + p.width / 2);
-    const cx = children.map(p => p.x + p.width / 2);
-    const joint = (Math.min(...px) + Math.max(...px)) / 2;
     const line = (x1, y1, x2, y2) => {
       if (x1 === x2 && y1 === y2) return;
       result.paths.push(`M${x1} ${y1} L${x2} ${y2}`);
       result.segments.push({ x1, y1, x2, y2 });
     };
-    for (const p of parents) line(p.x + p.width / 2, p.y + p.height, p.x + p.width / 2, parentY);
-    line(Math.min(...px), parentY, Math.max(...px), parentY);
+    parents.forEach((p, i) => line(px[i], p.y + p.height, px[i], parentY));
+    line(Math.min(joint, ...px), parentY, Math.max(joint, ...px), parentY);
     line(joint, parentY, joint, childY);
     line(Math.min(joint, ...cx), childY, Math.max(joint, ...cx), childY);
     for (const c of children) line(c.x + c.width / 2, childY, c.x + c.width / 2, c.y);
     roundConnection(result);
     return result;
   });
+}
+
+// Prefer the original midpoint, but never share a vertical track with another
+// family or its card stems. Own aligned stems can remain perfectly straight.
+function freeColumn(preferred, blocked, left, right) {
+  const sorted = blocked.toSorted((a, b) => a - b);
+  // Extremely crowded card ports may need less than the normal 12 px clearance.
+  for (let clearance = laneSpacing; clearance > .01; clearance /= 2) {
+    let start = left, best = null;
+    const consider = end => {
+      if (start > end) return;
+      const x = Math.max(start, Math.min(end, preferred));
+      if (best === null || Math.abs(x - preferred) < Math.abs(best - preferred)) best = x;
+    };
+    for (const x of sorted) {
+      consider(Math.min(right, x - clearance));
+      start = Math.max(start, x + clearance);
+    }
+    consider(right);
+    if (best !== null) return best;
+  }
+  return Math.max(left, Math.min(right, preferred));
 }
 
 // Split buses at their branches before rounding. Only degree-two elbows bend;
