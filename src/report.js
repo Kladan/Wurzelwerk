@@ -1,5 +1,5 @@
 import { displayName, getGenerations, getTreeGenerations } from './domain.js';
-import { familyConnections, connectionMarkup } from './tree-layout.js';
+import { familyConnections, connectionMarkup, connectionGap } from './tree-layout.js';
 
 export const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const originalNamesMarkup = person => person.nickname && person.firstName
@@ -55,7 +55,12 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
   const rowsPerPage = singlePage ? Math.max(1, generations.length) : 4;
   const columnsPerPage = singlePage ? Math.max(8, ...generations.map(g => g.length)) : 8;
   const pageWidth = columnsPerPage * 200;
-  const pageHeight = singlePage ? rowsPerPage * 220 - 60 : 880;
+  const rowTops = [0];
+  for (let row = 0; row < generations.length; row++) {
+    // Bound print corridors so a very wide generation cannot shrink every tile.
+    // The screen keeps full lane spacing; paper compacts crowded connections.
+    rowTops.push(rowTops[row] + 118 + Math.max(102, Math.min(176, connectionGap(generations[row + 1]))));
+  }
   const nodes = new Map();
   const pages = [];
   const pageByTile = new Map();
@@ -72,7 +77,7 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
         const column = start + index;
         const page = pageByTile.get(`${row}:${Math.floor(column / columnsPerPage)}`);
         const node = { person, row: row + offset,
-          x: column * 200 + 7, y: (row + offset) * 220 + 28,
+          x: column * 200 + 7, y: rowTops[row + offset] + 28,
           width: 186, height: 118, page: page.number };
         nodes.set(person.id, node); page.cards.push(node);
       });
@@ -107,11 +112,14 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
     <p>Diese Elternbeziehungen lassen sich nicht vollständig durch Linien auf einem Baumblatt zeigen.</p>
     <ul>${disconnected.map(({ person }) => `<li><strong>${reference(person.id)}</strong><br>Eltern: ${refs(person.parentIds)}</li>`).join('')}</ul></section>` : '';
   return `<article class="tree-print${singlePage ? ' tree-print-single' : ''}${paper === 'A3' ? ' tree-print-a3' : ''}" aria-label="Stammbaum zum Drucken">${pages.map(({ row, col, cards, number }) => {
+    const endRow = Math.min(row + rowsPerPage, generations.length);
+    const pageHeight = singlePage ? rowTops[endRow] - rowTops[row] - 60
+      : rowTops[endRow] - rowTops[row] + (rowsPerPage - (endRow - row)) * 220;
     const visible = connections.filter(group => group.routeIds.some(id => nodes.get(id)?.page === number));
     return `<section class="tree-print-page">${header(`Baumblatt ${number} von ${pages.length} · Generation ${row + 1}–${Math.min(row + rowsPerPage, generations.length)}${singlePage ? ' · Gesamtbaum' : ` · Spalte ${col + 1}`}`)}
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${col * pageWidth} ${row * 220} ${pageWidth} ${pageHeight}" role="img" aria-label="Personen und Familienlinien auf Baumblatt ${number}">
-      ${connectionMarkup(visible, null, { x: col * pageWidth, y: row * 220, width: pageWidth, height: pageHeight })}
-      ${Array.from({ length: Math.min(rowsPerPage, generations.length - row) }, (_, i) => row + i).filter(r => cards.some(node => node.row === r)).map(r => `<text class="tree-print-generation" x="${col * pageWidth + 7}" y="${r * 220 + 17}" font-size="13">Generation ${r + 1}</text>`).join('')}
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${col * pageWidth} ${rowTops[row]} ${pageWidth} ${pageHeight}" role="img" aria-label="Personen und Familienlinien auf Baumblatt ${number}">
+      ${connectionMarkup(visible, null, { x: col * pageWidth, y: rowTops[row], width: pageWidth, height: pageHeight })}
+      ${Array.from({ length: Math.min(rowsPerPage, generations.length - row) }, (_, i) => row + i).filter(r => cards.some(node => node.row === r)).map(r => `<text class="tree-print-generation" x="${col * pageWidth + 7}" y="${rowTops[r] + 17}" font-size="13">Generation ${r + 1}</text>`).join('')}
       ${cards.map(({ person, x, y }) => {
         const name = Array.from(displayName(person));
         const lines = [name.slice(0, 21).join(''), name.slice(21, 42).join('') + (name.length > 42 ? '…' : '')];

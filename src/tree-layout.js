@@ -1,5 +1,11 @@
 // Presentation geometry shared by screen and print. Coordinates come from cards,
 // never from user text. Generational membership is supplied by the domain layer.
+const laneSpacing = 12;
+export function connectionGap(generation = []) {
+  const count = new Set(generation.filter(p => p.parentIds.length).map(p => JSON.stringify([...p.parentIds].sort()))).size;
+  return Math.max(60, 32 + (2 * count - 1) * laneSpacing);
+}
+
 export function familyConnections(tree, nodes) {
   const families = new Map();
   for (const child of tree.people) {
@@ -26,12 +32,15 @@ export function familyConnections(tree, nodes) {
       routeIds: [...routeIds, ...group.children] };
     if (!parents.length) return result;
     const lanes = rows.get(group.row);
-    const lane = (lanes.indexOf(group) + 1) / (lanes.length + 1);
     const bottom = Math.max(...parents.map(p => p.y + p.height));
     const top = Math.min(...children.map(p => p.y));
     const gap = top - bottom;
-    const parentY = bottom + gap * (.10 + .25 * lane);
-    const childY = bottom + gap * (.40 + .50 * lane);
+    // Two banks of evenly spaced lanes, with room at both card edges.
+    // Limit spacing defensively when a caller supplies a narrower corridor.
+    const spacing = Math.min(laneSpacing, Math.max(0, (gap - 32) / (2 * lanes.length - 1)));
+    const inset = (gap - (2 * lanes.length - 1) * spacing) / 2;
+    const parentY = bottom + inset + lanes.indexOf(group) * spacing;
+    const childY = parentY + lanes.length * spacing;
     const px = parents.map(p => p.x + p.width / 2);
     const cx = children.map(p => p.x + p.width / 2);
     const joint = (Math.min(...px) + Math.max(...px)) / 2;
@@ -45,9 +54,49 @@ export function familyConnections(tree, nodes) {
     line(joint, parentY, joint, childY);
     line(Math.min(joint, ...cx), childY, Math.max(joint, ...cx), childY);
     for (const c of children) line(c.x + c.width / 2, childY, c.x + c.width / 2, c.y);
-    result.junctions.push({ x: joint, y: parentY }, { x: joint, y: childY });
+    roundConnection(result);
     return result;
   });
+}
+
+// Split buses at their branches before rounding. Only degree-two elbows bend;
+// T junctions stay connected and receive a dot, straight joins receive neither.
+function roundConnection(group) {
+  const vertices = new Map();
+  const vertex = (x, y) => {
+    const key = `${x}:${y}`;
+    if (!vertices.has(key)) vertices.set(key, { x, y, edges: [] });
+    return vertices.get(key);
+  };
+  for (const s of group.segments) { vertex(s.x1, s.y1); vertex(s.x2, s.y2); }
+  const edges = [];
+  for (const s of group.segments) {
+    const points = s.y1 === s.y2 ? [...vertices.values()].filter(p => p.y === s.y1 && p.x >= Math.min(s.x1, s.x2) && p.x <= Math.max(s.x1, s.x2)).sort((a, b) => a.x - b.x)
+      : [vertex(s.x1, s.y1), vertex(s.x2, s.y2)];
+    for (let i = 1; i < points.length; i++) {
+      const edge = { a: points[i - 1], b: points[i] };
+      edges.push(edge); edge.a.edges.push(edge.b); edge.b.edges.push(edge.a);
+    }
+  }
+  const towards = (p, other, distance) => {
+    const length = Math.hypot(other.x - p.x, other.y - p.y);
+    return { x: p.x + (other.x - p.x) * distance / length, y: p.y + (other.y - p.y) * distance / length };
+  };
+  group.curves = [];
+  for (const p of vertices.values()) {
+    if (p.edges.length >= 3) group.junctions.push({ x: p.x, y: p.y });
+    if (p.edges.length !== 2) continue;
+    const [a, b] = p.edges;
+    if ((a.x - p.x) * (b.y - p.y) === (a.y - p.y) * (b.x - p.x)) continue;
+    p.radius = Math.min(8, Math.hypot(a.x - p.x, a.y - p.y) / 2, Math.hypot(b.x - p.x, b.y - p.y) / 2);
+    group.curves.push({ start: towards(p, a, p.radius), corner: { x: p.x, y: p.y }, end: towards(p, b, p.radius) });
+  }
+  group.segments = edges.map(({ a, b }) => {
+    const start = a.radius ? towards(a, b, a.radius) : a;
+    const end = b.radius ? towards(b, a, b.radius) : b;
+    return { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
+  });
+  group.paths = group.segments.map(s => `M${s.x1} ${s.y1} L${s.x2} ${s.y2}`);
 }
 
 // A light halo makes crossings look like crossings, not additional junctions.
@@ -62,8 +111,14 @@ export function connectionMarkup(connections, selectedId = null, bounds = null) 
       const y = value => Math.max(bounds.y, Math.min(bounds.y + bounds.height, value));
       return `M${x(s.x1)} ${y(s.y1)} L${x(s.x2)} ${y(s.y2)}`;
     }) : group.paths;
-    const paths = segments.map(d => `<path d="${d}"/>`).join('');
+    const curves = (group.curves ?? []).filter(({ start, corner, end }) => !bounds ||
+      Math.max(start.x, corner.x, end.x) >= bounds.x && Math.min(start.x, corner.x, end.x) <= bounds.x + bounds.width &&
+      Math.max(start.y, corner.y, end.y) >= bounds.y && Math.min(start.y, corner.y, end.y) <= bounds.y + bounds.height)
+      .map(({ start, corner, end }) => `M${start.x} ${start.y} Q${corner.x} ${corner.y} ${end.x} ${end.y}`);
+    const paths = [...segments, ...curves].map(d => `<path d="${d}"/>`).join('');
     const junctions = group.junctions.filter(p => !bounds || p.x >= bounds.x && p.x <= bounds.x + bounds.width && p.y >= bounds.y && p.y <= bounds.y + bounds.height);
-    return `<g class="family-connection${related ? ' related' : ''}"><g class="connection-halo">${paths}</g><g class="connection-ink">${paths}${junctions.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.5"/>`).join('')}</g></g>`;
+    const markup = `<g class="family-connection${related ? ' related' : ''}"><g class="connection-halo">${paths}</g><g class="connection-ink">${paths}${junctions.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.5"/>`).join('')}</g></g>`;
+    // Clip curves at page edges without changing their shape or inventing elbows.
+    return bounds ? `<svg x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}" overflow="hidden">${markup}</svg>` : markup;
   }).join('');
 }

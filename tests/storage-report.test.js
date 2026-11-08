@@ -273,6 +273,20 @@ function fourGenerationTree() {
   return validateTree(tree);
 }
 
+test('wide generations keep tiled print height bounded and retain every card', () => {
+  const tree = createTree('Fiktive breite Familie');
+  for (let row = 0; row < 4; row++) for (let col = 0; col < 100; col++) {
+    tree.people.push(createPerson({ id: `g${row}p${col}`, firstName: `Person ${row}.${col}`,
+      parentIds: row ? [`g${row - 1}p${col}`] : [] }));
+  }
+  const output = treePrintMarkup(validateTree(tree));
+  assert.equal((output.match(/<rect /g) ?? []).length, 400);
+  assert.equal((output.match(/class="tree-print-page"/g) ?? []).length, 13);
+  for (const [, height] of output.matchAll(/viewBox="[\d.]+ [\d.]+ 1600 ([\d.]+)"/g)) {
+    assert.ok(Number(height) <= 1120); // Wide rows cannot make every tile arbitrarily tall.
+  }
+});
+
 test('single-page tree fits ten people per generation and all six generations without changing data', () => {
   const tree = createTree('Fiktiver Gesamtbaum');
   for (let row = 0; row < 6; row++) for (let col = 0; col < 10; col++) {
@@ -284,7 +298,7 @@ test('single-page tree fits ten people per generation and all six generations wi
     const output = treePrintMarkup(validateTree(tree), { singlePage: true, paper });
     assert.equal((output.match(/class="tree-print-page"/g) ?? []).length, 1);
     assert.equal((output.match(/<rect /g) ?? []).length, 60);
-    assert.ok(output.includes('viewBox="0 0 2000 1260"'));
+    assert.ok(output.includes('viewBox="0 0 2000 1630"'));
     assert.ok(output.includes('Generation 6'));
     assert.ok(output.includes('<path d="M'));
     assert.equal(output.includes('tree-print-index'), false);
