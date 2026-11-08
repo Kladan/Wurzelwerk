@@ -22,6 +22,51 @@ function setupStorage(value = null) {
   return storage;
 }
 
+test('labels survive storage and backup; invalid labels and failed writes preserve saved data', () => {
+  const legacy = demoTree();
+  for (const person of legacy.people) delete person.labels;
+  const storage = setupStorage(JSON.stringify(legacy));
+  const tree = loadTree();
+  assert.deepEqual(tree.people[0].labels, []);
+  tree.people[0].labels = ['Krieg', 'Auswanderung'];
+  const saved = saveTree(tree);
+  assert.deepEqual(loadTree(), saved);
+  assert.deepEqual(validateTree(JSON.parse(storage.value)), saved);
+  const before = storage.value;
+  tree.people[0].labels = [42];
+  assert.throws(() => saveTree(tree), /Labels/);
+  assert.equal(storage.value, before);
+  tree.people[0].labels = [];
+  storage.failWrites = true;
+  assert.throws(() => saveTree(tree), /konnte nicht speichern/);
+  assert.equal(storage.value, before);
+});
+
+test('label output is opt-in, escaped, complete and does not mutate the tree', () => {
+  const tree = demoTree();
+  tree.people[0].labels = ['Krieg', '<img onerror="evil()">', 'x'.repeat(60)];
+  const before = JSON.stringify(tree);
+  for (const render of [reportMarkup, reportDocument, treePrintMarkup]) {
+    assert.ok(!render(tree).includes('Krieg'));
+    const output = render(tree, { includeLabels: true });
+    assert.ok(output.includes('Krieg'));
+    assert.ok(output.includes('&lt;img onerror=&quot;evil()&quot;&gt;'));
+    assert.ok(!output.includes('<img'));
+    assert.ok(output.includes('x'.repeat(60)));
+    assert.equal(JSON.stringify(tree), before);
+  }
+  assert.ok(treePrintMarkup(tree, { includeLabels: true }).includes('Vollständige Labels'));
+  const indexed = treePrintMarkup(tree, { includeLabels: true, includeIndex: true });
+  assert.ok(!indexed.includes('Vollständige Labels'));
+  assert.ok(indexed.includes('x'.repeat(60)));
+  tree.people[0].labels = ['Krieg'];
+  const short = treePrintMarkup(tree, { includeLabels: true });
+  assert.ok(short.includes('class="tree-print-labels"'));
+  assert.ok(!short.includes('Vollständige Labels'));
+  tree.people[0].labels = [];
+  assert.ok(!treePrintMarkup(tree, { includeLabels: true }).includes('class="tree-print-labels"'));
+});
+
 test('nicknames survive legacy loading, saving and backup round trips without replacing given names', () => {
   const legacy = demoTree();
   for (const person of legacy.people) delete person.nickname;

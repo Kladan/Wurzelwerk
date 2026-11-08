@@ -320,6 +320,10 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
 .person-card > .original-names { font-size: 10px; margin: 3px 0; }
 .print-index-option { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
 .print-index-option input { accent-color: var(--pine); }
+.person-labels { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.person-label { display: inline-block; max-width: 100%; padding: 2px 7px; border: 1px solid var(--line); border-radius: 9px; background: #f1f4ec; color: var(--pine); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.tree-print-labels { fill: #40553d; }
+.print-labels { display: block; overflow-wrap: anywhere; font-weight: 400; }
 @page tree { size: A4 landscape; margin: 12mm; }
 @page { size: A4; margin: 18mm 17mm 20mm; }
 @media print {

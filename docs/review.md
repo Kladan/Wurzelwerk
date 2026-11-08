@@ -1,5 +1,17 @@
 # Umsetzungs- und Prüfnotiz
 
+## Optionale Labels (8. November 2026)
+
+Labels sind pro Person als begrenzte Textliste erfasst und werden bei Import und Speicherung ausdrücklich projiziert. Alte Dateien erhalten eine leere Liste. Die Ausgabe auf Karten, in der Chronik, beim Baumdruck und beim HTML-Download ist standardmäßig deaktiviert. Lange Drucklabels erscheinen vollständig in einem automatischen Anhang. JSON-Sicherungen behalten sämtliche Labels unabhängig von der Ausgabeoption.
+
+Ein unabhängiger Review-Agent prüfte Validierung, Legacy-Daten, Optionsdurchreichung, Datenerhalt und HTML-Maskierung ohne blockierende Befunde. Er führte 49 Fach-, Speicher- und Ausgabetests erfolgreich aus; ein eigener Browserreview war nicht Teil seiner Prüfung. Drei neue Verhaltenstests prüfen Bearbeitung/Entfernung, ungültige Labelwerte, Speicherfehler, Sicherungsrundlauf, optionale maskierte Ausgabe und vollständige Druckanhänge.
+
+Die technische Leitung prüfte Chrome Headless mit einem eigenen lokalen Profil und ausschließlich fiktiven Daten: Bearbeiten/Speichern/Neuladen, Tab-Reihenfolge zum Biografiefeld, Fokus nach Umschalten der Ausgabeoption, Chronik mit und ohne Labels, 20 lange Labels ohne Seitenüberbreite bei 390 Pixeln sowie deren verlustfreies erneutes Bearbeiten. Der kurze Druckfall mit Spitzname, Vornamen, Geburtsjahr und zwei Labels ergab eine A4-Seite ohne SVG-Textüberlauf und ohne Änderung der gespeicherten Daten. Bildschirm und emulierte Druckansicht wurden visuell geprüft; vollständige lange Labels im Anhang wurden im DOM geprüft. Prüfdateien liegen ausschließlich im ignorierten lokalen Arbeitsverzeichnis.
+
+Abschließend bestand `npm.cmd run check` mit 53 Tests, Syntaxprüfungen und statischem Build; `git diff --check` meldete keine Formatfehler.
+
+Prüfgrenzen: Keine Rasterprüfung der PDF selbst, kein physischer Ausdruck, keine anderen Browser oder Screenreader. Die Ausgabeoption wird nur für die laufende Sitzung gehalten. Freie Labels werden weder automatisch gedeutet noch als historische Aussagen ergänzt.
+
 ## Spitznamen (8. November 2026)
 
 Das optionale, auf 500 Zeichen begrenzte Feld `nickname` wird ausdrücklich validiert und projiziert. Alte Version-1-Daten ohne das Feld bleiben lesbar. Der Spitzname ersetzt die Hauptanzeige der Vornamen; die echten Vornamen bleiben in Speicherung und Sicherung erhalten und stehen auf Karten, in Details, Verzeichnissen und Chronik kleiner separat. Beziehungen verwenden den bevorzugten Anzeigenamen. Ein leerer Spitzname stellt die bisherige Anzeige wieder her. Ohne erfasste Vornamen wird keine zusätzliche Namenszeile erfunden.

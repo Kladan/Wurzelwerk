@@ -1,6 +1,6 @@
 import { createTree, createPerson, validateTree, upsertPerson, addRelative, linkPeople, getFamilyLinkSuggestion, getParentSuggestions, deletePerson, displayName, getGenerations, getTreeGenerations, demoTree } from './domain.js';
 import { loadTree, saveTree, downloadFile, safeFilename, STORAGE_KEY } from './storage.js';
-import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup, fitTreePrintText, originalNamesMarkup } from './report.js';
+import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup, fitTreePrintText, originalNamesMarkup, labelsMarkup } from './report.js';
 
 import { familyConnections, connectionMarkup } from './tree-layout.js';
 
@@ -18,6 +18,8 @@ let query = '';
 let undoTree = null;
 let toastTimer;
 let includeTreeIndex = false;
+let includeLabels = false;
+const labelOption = () => `<label class="print-index-option"><input type="checkbox" id="include-labels" ${includeLabels ? "checked" : ""}> Labels ausgeben</label>`;
 const personById = id => tree.people.find(p => p.id === id);
 const icon = name => ({ tree: '♧', people: '☷', report: '▤', plus: '+', backup: '↓', import: '↑' })[name];
 const action = (name, label, classes = 'secondary', extra = '') => `<button type="button" class="button ${classes}" data-action="${name}" ${extra}>${label}</button>`;
@@ -49,7 +51,7 @@ function personCard(person) {
   return `<button class="person-card ${selectedIds.has(person.id) ? 'selected' : ''}" data-person="${e(person.id)}" data-node="${e(person.id)}" aria-pressed="${selectedIds.has(person.id)}">
     <span class="avatar">${initials(person)}</span><span class="person-name">${e(displayName(person))}</span>${originalNamesMarkup(person)}
     ${person.birthName ? `<span class="person-meta">geb. ${e(person.birthName)}</span>` : ''}<span class="person-dates">${e(lifespan(person))}</span>
-    <span class="person-meta">${e(person.birthPlace || 'Geburtsort offen')}</span>
+    ${includeLabels ? labelsMarkup(person) : ''}<span class="person-meta">${e(person.birthPlace || 'Geburtsort offen')}</span>
     ${person.parentIds.length ? `<span class="tree-card-footer">Eltern: ${person.parentIds.map(id => e(displayName(personById(id)))).join(' &amp; ')}</span>` : ''}
     ${person.partnerIds.length ? `<span class="person-meta">♡ ${person.partnerIds.map(id => e(displayName(personById(id)))).join(', ')}</span>` : ''}
   </button>`;
@@ -61,7 +63,7 @@ function detailPanel() {
   const children = tree.people.filter(p => p.parentIds.includes(person.id));
   return `<aside class="detail-panel" aria-label="Personendetails"><div class="panel-header"><span class="eyebrow">PERSON IM FOKUS</span>${action('edit', 'Bearbeiten', 'ghost small')}</div>
     <div class="detail-content"><span class="avatar large">${initials(person)}</span><h2>${e(displayName(person))}</h2>${originalNamesMarkup(person)}${person.birthName ? `<p class="muted">geborene/r ${e(person.birthName)}</p>` : ''}
-    <dl class="person-facts"><dt>Geboren</dt><dd>${e(formatDate(person.birthDate))}${person.birthPlace ? `<br>${e(person.birthPlace)}` : ''}</dd>
+    ${labelsMarkup(person)}<dl class="person-facts"><dt>Geboren</dt><dd>${e(formatDate(person.birthDate))}${person.birthPlace ? `<br>${e(person.birthPlace)}` : ''}</dd>
     ${person.deathDate || person.deathPlace ? `<dt>Gestorben</dt><dd>${e(formatDate(person.deathDate))}${person.deathPlace ? `<br>${e(person.deathPlace)}` : ''}</dd>` : ''}</dl>
     <div class="detail-section"><h3>Verbindungen</h3><p><span class="muted">Eltern</span><br>${nameLinks(person.parentIds) || 'Noch nicht erfasst'}</p><p><span class="muted">Partnerschaften</span><br>${nameLinks(person.partnerIds) || 'Noch nicht erfasst'}</p><p><span class="muted">Kinder</span><br>${nameLinks(children.map(p => p.id)) || 'Noch nicht erfasst'}</p><div class="relative-actions">${person.parentIds.length < 2 ? action('parent', '+ Elternteil hinzufügen', 'secondary small') : ''}${action('partner', '+ Partnerschaft hinzufügen', 'secondary small')}${action('child', '+ Kind hinzufügen', 'secondary small')}</div></div>
     ${person.notes ? `<div class="detail-section"><h3>Erinnerungen</h3><p class="preserve-lines">${e(person.notes)}</p></div>` : ''}${person.sources ? `<div class="detail-section"><h3>Quellen</h3><p class="preserve-lines">${e(person.sources)}</p></div>` : ''}
@@ -75,7 +77,7 @@ function emptyState() {
 function workspace() {
   if (!tree.people.length) return emptyState();
   const filtered = tree.people.filter(p => [displayName(p), `${p.firstName} ${p.lastName}`, p.birthName, p.birthPlace].join(' ').toLocaleLowerCase('de').includes(query.toLocaleLowerCase('de')));
-  const content = view === 'people' || query ? `<div class="person-list">${filtered.length ? filtered.sort((a,b) => displayName(a).localeCompare(displayName(b), 'de')).map(p => `<button class="list-person ${selectedIds.has(p.id) ? 'selected' : ''}" data-person="${e(p.id)}" aria-pressed="${selectedIds.has(p.id)}"><span class="avatar">${initials(p)}</span><span><strong>${e(displayName(p))}</strong>${originalNamesMarkup(p)}<small>${e(lifespan(p))} · ${e(p.birthPlace || 'Ort offen')}</small></span><span aria-hidden="true">→</span></button>`).join('') : '<div class="empty-state"><h3>Keine Person gefunden</h3><p>Versuche einen anderen Namen oder Geburtsort.</p></div>'}</div>` : `<div class="tree-scroll"><div class="tree-canvas"><svg class="tree-lines" aria-hidden="true"></svg>${getTreeGenerations(tree).map((generation, index) => `<section class="generation-group" data-generation="${index}"><p class="generation-label">GENERATION ${String(index + 1).padStart(2, '0')}</p><div class="generation">${generation.map(personCard).join('')}</div></section>`).join('')}</div></div>`;
+  const content = view === 'people' || query ? `<div class="person-list">${filtered.length ? filtered.sort((a,b) => displayName(a).localeCompare(displayName(b), 'de')).map(p => `<button class="list-person ${selectedIds.has(p.id) ? 'selected' : ''}" data-person="${e(p.id)}" aria-pressed="${selectedIds.has(p.id)}"><span class="avatar">${initials(p)}</span><span><strong>${e(displayName(p))}</strong>${originalNamesMarkup(p)}${includeLabels ? labelsMarkup(p) : ''}<small>${e(lifespan(p))} · ${e(p.birthPlace || 'Ort offen')}</small></span><span aria-hidden="true">→</span></button>`).join('') : '<div class="empty-state"><h3>Keine Person gefunden</h3><p>Versuche einen anderen Namen oder Geburtsort.</p></div>'}</div>` : `<div class="tree-scroll"><div class="tree-canvas"><svg class="tree-lines" aria-hidden="true"></svg>${getTreeGenerations(tree).map((generation, index) => `<section class="generation-group" data-generation="${index}"><p class="generation-label">GENERATION ${String(index + 1).padStart(2, '0')}</p><div class="generation">${generation.map(personCard).join('')}</div></section>`).join('')}</div></div>`;
   return `<div class="workspace"><section class="tree-panel"><div class="panel-header"><h2>${view === 'people' || query ? 'Personenverzeichnis' : 'Deine Familie im Überblick'}</h2><span class="muted">${view === 'people' || query ? `${filtered.length} Einträge` : 'Ältere Generationen oben'}</span></div>${selectionToolbar()}${content}<p class="tree-hint">${view === 'tree' && !query ? 'Gemeinsame Linien bündeln Eltern und Geschwister; Punkte markieren Verzweigungen. Wähle eine Person, um ihre Familienlinien hervorzuheben. Eltern über mehrere Generationen stehen als Verweis auf der Karte. Die Generation folgt den erfassten Eltern; ohne Elternangaben orientiert sie sich an Partnerschaften.' : 'Wähle eine Person, um ihre Geschichte und Verbindungen zu sehen.'}</p></section>${detailPanel()}</div>`;
 }
 
@@ -150,7 +152,7 @@ function render() {
     <main class="main"><header class="page-header no-print"><div><p class="eyebrow">VERGANGENHEIT BEWAHREN. VERBINDUNGEN ENTDECKEN.</p><h1>${e(tree.title)}</h1><p class="page-subtitle">${view === 'report' ? 'Eine Familiengeschichte zum Aufbewahren und Weitergeben.' : 'Jeder Mensch ein Kapitel. Gemeinsam eine Geschichte.'}</p></div><div class="header-actions">${action('rename', 'Titel ändern', 'ghost')}${view === 'report' ? action('print', 'Drucken / PDF', 'primary') : action('print', 'Baum drucken / PDF', 'secondary') + action('add', '+ Person hinzufügen', 'primary')}</div></header>
     ${loadError ? `<div class="notice error no-print" role="alert">${e(loadError)} ${action('raw', 'Rohdaten sichern', 'secondary small')}</div>` : ''}
     <section class="stats no-print" aria-label="Stammbaum in Zahlen"><div class="stat"><span class="stat-value">${tree.people.length}</span><span>Menschen im Stammbaum</span></div><div class="stat"><span class="stat-value">${generations.length}</span><span>erfasste Generationen</span></div><div class="stat"><span class="stat-value">${new Set(tree.people.map(p => p.birthPlace).filter(Boolean)).size}</span><span>Geburtsorte</span></div><div class="stat privacy-stat"><span class="stat-value">Lokal.</span><span>Deine Daten bleiben bei dir</span></div></section>
-    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div><label class="print-index-option"><input type="checkbox" id="print-tree-index" ${includeTreeIndex ? 'checked' : ''}> Verzeichnis im PDF</label><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
+    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${labelOption()}${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree, { includeLabels }) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div>${labelOption()}<label class="print-index-option"><input type="checkbox" id="print-tree-index" ${includeTreeIndex ? 'checked' : ''}> Verzeichnis im PDF</label><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
     <footer class="app-footer no-print"><span>WURZELWERK</span><span>${loadError ? 'Speicherung prüfen' : 'Änderungen werden in diesem Browser lokal gespeichert.'}</span>${undoTree ? action('undo', 'Letzte Löschung rückgängig', 'ghost small') : ''}</footer></main></div>`;
   if (view === 'tree' && !query) requestAnimationFrame(() => {
     const scroll = document.querySelector('.tree-scroll');
@@ -200,8 +202,8 @@ function editPerson(person = createPerson(), relationship = null) {
   showDialog(`<form><div class="dialog-header"><div><p class="eyebrow">EIN STÜCK FAMILIENGESCHICHTE</p><h2 id="dialog-title">${relationship ? ({ parent: 'Elternteil hinzufügen', partner: 'Partnerschaft hinzufügen', child: 'Kind hinzufügen' })[relationship.type] : personById(person.id) ? 'Person bearbeiten' : 'Person hinzufügen'}</h2></div><button type="button" class="button ghost" data-close aria-label="Schließen">✕</button></div><div class="dialog-body"><p>${relationship ? `Neue Person als ${{ parent: 'Elternteil', partner: 'Partnerperson', child: 'Kind' }[relationship.type]} von <strong>${e(displayName(personById(relationship.id)))}</strong> anlegen. Diese Verbindung ist vorausgewählt und wird beim Speichern hergestellt. ` : ''}Ein Vor- oder Nachname genügt. Alles andere darf offen bleiben.</p><div class="notice error" role="alert" hidden></div><div class="form-grid">${field('firstName','Vorname(n)')}${field('lastName','Nachname')}${field('nickname','Spitzname (optional)')}${field('birthName','Geburtsname')}${field('birthDate','Geburtsdatum','z. B. 1948 oder 1948-03-21')}${field('birthPlace','Geburtsort')}${field('deathDate','Sterbedatum','Jahr, Jahr-Monat oder Jahr-Monat-Tag')}${field('deathPlace','Sterbeort')}</div><p class="field-hint">Ein Spitzname ersetzt die Vornamen in der Anzeige; die Vornamen bleiben klein darunter erhalten.</p><p class="field-hint">Datumsformat: JJJJ, JJJJ-MM oder JJJJ-MM-TT. Ein leeres Sterbedatum sagt nichts über den Lebensstatus aus.</p>
     <fieldset class="relationship-fieldset"><legend>Eltern <small>(höchstens zwei)</small></legend><label class="field"><span>Eltern nach Namen suchen</span><input type="search" id="parent-search" placeholder="Name eingeben …"></label><p class="field-hint">Nach Auswahl eines Elternteils: bekannte Partner zuerst, danach Personen derselben Generation. Vorschläge bitte selbst prüfen.</p><div id="parent-options" class="relationship-options"></div><p id="parent-status" class="field-hint" role="status"></p></fieldset>
     <fieldset class="relationship-fieldset"><legend>Partnerschaften</legend><div class="relationship-options">${options.length ? options.map(p => `<label><input type="checkbox" name="partnerIds" value="${e(p.id)}" ${person.partnerIds.includes(p.id) ? 'checked' : ''}> ${e(displayName(p))}</label>`).join('') : '<p>Noch keine weiteren Personen erfasst.</p>'}</div></fieldset>
-    <label class="field"><span>Erinnerungen & Biografie</span><textarea name="notes" rows="4" maxlength="20000" placeholder="Was macht diesen Menschen unvergesslich?">${e(person.notes)}</textarea></label><label class="field"><span>Quellen & Forschungsnotizen</span><textarea name="sources" rows="3" maxlength="20000" placeholder="z. B. Familienbuch, Urkunde, Gespräch …">${e(person.sources)}</textarea></label></div><div class="dialog-actions"><button type="button" class="button secondary" data-close-secondary>Abbrechen</button><button class="button primary" type="submit">Person speichern</button></div></form>`, data => {
-      const nextPerson = { ...person, ...Object.fromEntries([...data].filter(([key]) => !['parentIds','partnerIds'].includes(key))), parentIds: data.getAll('parentIds'), partnerIds: data.getAll('partnerIds') };
+    <label class="field"><span>Labels (optional, ein Label pro Zeile)</span><textarea name="labels" rows="3" maxlength="1219" aria-describedby="labels-hint" placeholder="z. B. Krieg">${e(person.labels.join("\n"))}</textarea></label><p id="labels-hint" class="field-hint">Bis zu 20 Labels mit je 60 Zeichen. Beispiel: „Krieg“ für eine Person, die im Krieg war. Details und Belege kannst du unter Erinnerungen und Quellen festhalten.</p><label class="field"><span>Erinnerungen & Biografie</span><textarea name="notes" rows="4" maxlength="20000" placeholder="Was macht diesen Menschen unvergesslich?">${e(person.notes)}</textarea></label><label class="field"><span>Quellen & Forschungsnotizen</span><textarea name="sources" rows="3" maxlength="20000" placeholder="z. B. Familienbuch, Urkunde, Gespräch …">${e(person.sources)}</textarea></label></div><div class="dialog-actions"><button type="button" class="button secondary" data-close-secondary>Abbrechen</button><button class="button primary" type="submit">Person speichern</button></div></form>`, data => {
+      const nextPerson = { ...person, ...Object.fromEntries([...data].filter(([key]) => !['parentIds','partnerIds','labels'].includes(key))), labels: data.get('labels').split(/\r?\n/).map(label => label.trim()).filter(Boolean), parentIds: data.getAll('parentIds'), partnerIds: data.getAll('partnerIds') };
       const next = relationship ? addRelative(tree, nextPerson, relationship.id, relationship.type) : upsertPerson(tree, nextPerson);
       commit(next, 'Person gespeichert.');
       selectedId = person.id;
@@ -263,7 +265,7 @@ const actions = {
   backup: () => { if (loadError) { actions.raw(); return; } downloadFile(JSON.stringify(tree, null, 2), `${safeFilename(tree.title)}-${new Date().toISOString().slice(0,10)}.json`, 'application/json'); notify('Sicherung heruntergeladen. Bewahre sie an einem sicheren Ort auf.'); },
   raw: () => { const raw = localStorage.getItem(STORAGE_KEY); if (raw) downloadFile(raw, 'Wurzelwerk-Rohdaten.json', 'application/json'); else notify('Keine gespeicherten Rohdaten verfügbar.'); },
   import: () => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json,application/json'; input.onchange = () => importBackup(input.files[0]); input.click(); },
-  html: () => downloadFile(reportDocument(tree), `${safeFilename(tree.title)}-Chronik.html`, 'text/html;charset=utf-8'),
+  html: () => downloadFile(reportDocument(tree, { includeLabels }), `${safeFilename(tree.title)}-Chronik.html`, 'text/html;charset=utf-8'),
   print: () => window.print(),
   demo: () => confirmChange('Beispiel erkunden?', 'Ein erfundener Stammbaum mit sieben Personen zeigt dir die Möglichkeiten. Er wird lokal gespeichert.', 'Beispiel laden', () => commit(demoTree(), 'Fiktives Beispiel geladen.')),
   new: () => confirmChange('Neuen Stammbaum beginnen?', 'Der aktuelle Stammbaum wird in diesem Browser ersetzt. Lade vorher eine Sicherung herunter, wenn du ihn behalten möchtest.', 'Leeren Stammbaum anlegen', () => { commit(createTree(), 'Neuer Stammbaum angelegt.'); undoTree = null; render(); }),
@@ -285,6 +287,11 @@ app.addEventListener('click', event => {
 });
 
 app.addEventListener('change', event => {
+  if (event.target.id === 'include-labels') {
+    includeLabels = event.target.checked;
+    render();
+    app.querySelector('#include-labels')?.focus();
+  }
   if (event.target.id === 'print-tree-index') includeTreeIndex = event.target.checked;
 });
 
@@ -315,7 +322,7 @@ window.addEventListener('beforeprint', () => {
   printFocus = document.activeElement;
   const output = document.createElement('div');
   output.id = 'tree-print-output';
-  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex });
+  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex, includeLabels });
   output.style.cssText = 'display:block;position:fixed;visibility:hidden;pointer-events:none';
   document.body.append(output);
   fitTreePrintText(output);

@@ -32,6 +32,7 @@ function references(value, field, max) {
 function normalizePerson(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Ein Personeneintrag ist ungültig.');
   const person = { id: identifier(input.id) };
+  person.labels = normalizeLabels(input.labels === undefined ? [] : input.labels);
   for (const field of PERSON_FIELDS) {
     const value = input[field] ?? '';
     person[field] = field.endsWith('Date') ? date(value, field === 'birthDate' ? 'Geburtsdatum' : 'Sterbedatum') : text(value, field, ['notes', 'sources'].includes(field) ? 20000 : 500);
@@ -53,10 +54,21 @@ export function createTree(title = 'Meine Familie') {
 
 export function createPerson(fields = {}) {
   const person = { id: fields.id ?? globalThis.crypto.randomUUID() };
+  person.labels = normalizeLabels(fields.labels === undefined ? [] : fields.labels);
   for (const field of PERSON_FIELDS) person[field] = fields[field] ?? '';
   person.parentIds = [...(fields.parentIds ?? [])];
   person.partnerIds = [...(fields.partnerIds ?? [])];
   return person;
+}
+
+function normalizeLabels(value) {
+  if (!Array.isArray(value) || value.length > 20) throw new Error('Labels: Bitte höchstens 20 Labels angeben.');
+  const labels = value.map(value => {
+    const label = text(value, 'Labels', 60);
+    if (!label || /[\r\n]/.test(label)) throw new Error('Labels: Ein Label muss aus einer nicht leeren Zeile bestehen.');
+    return label;
+  });
+  return [...new Set(labels)];
 }
 
 /** Import data is explicitly projected, never merged into live application objects. */

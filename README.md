@@ -31,6 +31,10 @@ Bei einer Auswahl aus genau zwei benachbarten dargestellten Generationen sind di
 
 ## Speichern und sichern
 
+Unter **Person bearbeiten** kannst du optionale **Labels** erfassen, eines pro Zeile, etwa „Krieg“ für eine Person, die im Krieg war. Bis zu 20 Labels mit je 60 Zeichen sind möglich. Einzelheiten und Belege gehören in Erinnerungen und Quellen. Leere Zeilen entfallen; identische Labels werden zusammengefasst. Zum Entfernen die entsprechende Zeile löschen und speichern.
+
+Die Personendetails zeigen Labels immer. **Labels ausgeben** blendet sie zusätzlich auf Baumkarten, im Personenverzeichnis, in der Chronik sowie beim Druck und HTML-Download ein. Die Einstellung gilt für die laufende Sitzung und ist nach dem Neuladen ausgeschaltet. Im Baumdruck werden lange Labelzeilen mit „…“ gekürzt; vollständige Labels stehen dann automatisch in einem Anhang oder im aktivierten Verzeichnis. JSON-Sicherungen enthalten Labels unabhängig von dieser Ausgabeeinstellung. Ältere Sicherungen ohne Labels bleiben lesbar.
+
 Erfolgreich gespeicherte Änderungen liegen im **localStorage des verwendeten Browserprofils**. Immer dasselbe Profil und dieselbe Adresse einschließlich Port verwenden: `localhost`, `127.0.0.1`, andere Ports und andere Browser haben getrennte Speicherbereiche.
 
 **Sicherung speichern** lädt den vollständigen Stammbaum als JSON-Datei herunter. Diese Datei regelmäßig zusätzlich an einem selbst gewählten sicheren Ort aufbewahren. **Sicherung öffnen** liest eine Wurzelwerk-JSON-Datei ein; nach Bestätigung ersetzt sie den aktuellen Stammbaum. Vor **Neuer Stammbaum** oder einem Import zuerst die bisherige Familie sichern. Die Sicherungsdatei ermöglicht auch die Weitergabe an andere, die ihre eigene lokale Installation verwenden.

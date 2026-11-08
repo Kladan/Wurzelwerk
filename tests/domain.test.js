@@ -2,6 +2,25 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createTree, createPerson, validateTree, upsertPerson, addRelative, linkPeople, getFamilyLinkSuggestion, deletePerson, getGenerations, getTreeGenerations, getParentSuggestions, demoTree } from '../src/domain.js';
 
+test('labels are optional, bounded, projected and editable without changing relatives', () => {
+  const legacy = demoTree();
+  for (const person of legacy.people) delete person.labels;
+  const tree = validateTree(legacy);
+  assert.deepEqual(tree.people[0].labels, []);
+  const input = { ...tree.people[0], labels: [' Krieg ', 'Auswanderung', 'Krieg'] };
+  const result = upsertPerson(tree, input);
+  assert.deepEqual(result.people[0].labels, ['Krieg', 'Auswanderung']);
+  assert.deepEqual(tree.people[0].labels, []);
+  input.labels[0] = 'Verändert';
+  assert.equal(result.people[0].labels[0], 'Krieg');
+  assert.deepEqual(result.people.slice(1), tree.people.slice(1));
+  assert.deepEqual(upsertPerson(result, { ...result.people[0], labels: [] }), tree);
+  for (const labels of [null, 'Krieg', {}, [42], [''], ['  '], ['a\nb'], ['a\rb'], ['x'.repeat(61)], Array(21).fill('Krieg')]) {
+    assert.throws(() => upsertPerson(tree, { ...tree.people[0], labels }), /Labels/);
+  }
+  assert.equal(createPerson({ firstName: 'Test', labels: Array.from({ length: 20 }, (_, i) => `${i}`) }).labels.length, 20);
+});
+
 test('fictional tree survives JSON export/import without information loss', () => {
   const tree = demoTree();
   assert.deepEqual(validateTree(JSON.parse(JSON.stringify(tree))), tree);
