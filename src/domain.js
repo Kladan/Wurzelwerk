@@ -316,12 +316,12 @@ export function getTreeGenerations(tree) {
       }
       families.push({ blocks: family, key: family.flatMap(block => block.people).sort(compareNames)[0], anchor: Infinity });
     }
-    return { families, blockOf, neighbors };
+    return { families, neighbors };
   });
   const mean = values => values.length ? values.reduce((sum, x) => sum + x, 0) / values.length : Infinity;
   const compareAnchors = (a, b) => a === b ? 0 : a - b;
   const updateRow = (rowIndex, upwards) => {
-    const { families, blockOf, neighbors } = rows[rowIndex];
+    const { families, neighbors } = rows[rowIndex];
     const adjacent = new Set(generations[rowIndex + (upwards ? 1 : -1)]?.map(person => person.id) ?? []);
     const targets = person => (upwards ? children.get(person.id) : person.parentIds)
       .filter(id => adjacent.has(id)).map(id => positions.get(id));
@@ -350,18 +350,7 @@ export function getTreeGenerations(tree) {
       }
     }
     families.sort((a, b) => compareAnchors(a.anchor, b.anchor) || compareNames(a.key, b.key));
-    const ordered = families.flatMap(family => family.blocks.flatMap(block => block.people));
-    const localPositions = new Map(ordered.map((person, index) => [person.id, index]));
-    for (const family of families) for (const block of family.blocks) {
-      const center = mean(block.people.map(person => localPositions.get(person.id)));
-      const side = person => {
-        const partners = [...relatives.get(person.id)].filter(id => blockOf.has(id) && blockOf.get(id) !== block);
-        // Unconnected siblings stay between the people needed at either edge.
-        return partners.length ? mean(partners.map(id => localPositions.get(id))) - center : 0;
-      };
-      const sides = new Map(block.people.map(person => [person.id, side(person)]));
-      block.people.sort((a, b) => sides.get(a.id) - sides.get(b.id) || compareSiblings(a, b));
-    }
+    // Partnerships may move whole blocks, never override sibling birth order.
     const result = families.flatMap(family => family.blocks.flatMap(block => block.people));
     // All targets are from one adjacent row. Integer ranks avoid input-order
     // dependent rounding when equivalent parent/child anchors are averaged.

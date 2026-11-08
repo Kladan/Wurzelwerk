@@ -134,7 +134,7 @@ test('tree order keeps recorded partners together within the same generation', (
   assert.deepEqual(getTreeGenerations(tree)[0].map(p => p.id), ['a', 'z', 'b']);
 });
 
-test('parents follow child branches and married siblings face their partner across blocks', () => {
+test('parents follow child branches while married siblings retain birth order', () => {
   const person = (id, fields = {}) => createPerson({ id, firstName: id, ...fields });
   const tree = validateTree({ ...createTree(), people: [
     ...['a1', 'a2', 'b1', 'b2', 'c1', 'c2'].map(id => person(id)),
@@ -147,7 +147,7 @@ test('parents follow child branches and married siblings face their partner acro
   const rows = getTreeGenerations(tree).map(row => row.map(p => p.id));
   assert.deepEqual(rows, [
     ['a1', 'a2', 'c1', 'c2', 'b1', 'b2'],
-    ['ab', 'ac', 'aa', 'ca', 'ba', 'bb', 'bc', 'bd'], ['child'],
+    ['aa', 'ab', 'ac', 'ca', 'ba', 'bb', 'bc', 'bd'], ['child'],
   ]);
   const reversed = { ...tree, people: [...tree.people].reverse().map(p => ({ ...p,
     parentIds: [...p.parentIds].reverse(), partnerIds: [...p.partnerIds].reverse() })) };
@@ -159,7 +159,7 @@ test('parents follow child branches and married siblings face their partner acro
   assert.deepEqual(getTreeGenerations(coParents).map(row => row.map(p => p.id)), rows);
 });
 
-test('siblings with partners on both sides use facing edges and preserve other birth order', () => {
+test('partnerships on both sides never override sibling birth order', () => {
   const person = (id, fields = {}) => createPerson({ id, firstName: id, ...fields });
   const tree = validateTree({ ...createTree(), people: [person('p'),
     person('left', { partnerIds: ['s1'] }), person('right', { partnerIds: ['s2'] }),
@@ -168,8 +168,8 @@ test('siblings with partners on both sides use facing edges and preserve other b
   ] });
   const row = getTreeGenerations(tree)[1].map(p => p.id);
   assert.equal(Math.abs(row.indexOf('left') - row.indexOf('s1')), 1);
-  assert.equal(Math.abs(row.indexOf('right') - row.indexOf('s2')), 1);
-  assert.equal(row.indexOf('s4') - row.indexOf('s3'), 1);
+  assert.deepEqual(row.filter(id => id.startsWith('s')), ['s1', 's2', 's3', 's4']);
+  assert.equal(row.indexOf('right') - row.indexOf('s4'), 1);
 });
 
 test('equal family anchors remain deterministic across permuted relationship arrays', () => {

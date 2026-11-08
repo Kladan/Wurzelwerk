@@ -1,5 +1,11 @@
 # Umsetzungs- und Prüfnotiz
 
+## Geburtsfolge der Geschwister hat Vorrang (8. November 2026)
+
+Auf Nutzerwunsch bleibt innerhalb jedes Geschwisterblocks die Reihenfolge nach bekanntem Geburtsdatum erhalten, auch bei Partnerschaften und gemeinsamen Kindern. Die Verschiebung einzelner Geschwister an Blockränder entfällt. Die Anordnung ganzer Familienzweige in beiden Richtungen bleibt erhalten. Fehlende Geburtsdaten stehen weiterhin nach bekannten Daten; Namen und IDs lösen Gleichstände auf.
+
+Die beiden betroffenen Verhaltenstests prüfen jetzt den Vorrang der Geburtsfolge bei blockübergreifenden Partnerschaften, gemeinsamen Kindern und Partnern auf beiden Seiten. `npm.cmd run check` bestand mit 48 Tests, Syntaxprüfungen und Build; `git diff --check` ohne Formatfehler. Keine erneute Browser- oder unabhängige Agentenprüfung für diese kleine Folgeänderung. Die folgenden Browser- und Reviewnachweise beschreiben den vorherigen Stand mit Randverschiebung; die dort genannten Prüfgrenzen gelten weiter.
+
 ## Kartenreihenfolge über mehrere Generationen (8. November 2026)
 
 Die Sortierung führt Elternzweige anhand der Kinderreihenfolge nach. Geschwister mit identischen Eltern bleiben zusammen; Partnerschaften und gemeinsame Eltern können einzelne Geschwister an den zugewandten Blockrand verschieben. Unbeteiligte Geschwister behalten ihre relative Geburts-/Namensreihenfolge. Einfache Partnerschaftsketten ordnen die beteiligten Blöcke nebeneinander an. Drei begrenzte Auf-/Abwärtsdurchläufe vermeiden unbeschränkte Optimierungsschleifen. Bildschirm und Baumdruck verwenden weiterhin dieselbe Reihenfolge.
