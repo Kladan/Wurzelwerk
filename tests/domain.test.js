@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTree, createPerson, validateTree, upsertPerson, addRelative, deletePerson, getGenerations, getTreeGenerations, getParentSuggestions, demoTree } from '../src/domain.js';
+import { createTree, createPerson, validateTree, upsertPerson, addRelative, linkPeople, getFamilyLinkSuggestion, deletePerson, getGenerations, getTreeGenerations, getParentSuggestions, demoTree } from '../src/domain.js';
 
 test('fictional tree survives JSON export/import without information loss', () => {
   const tree = demoTree();
@@ -212,5 +212,81 @@ test('second parent suggestions prioritize partners, include the same generation
   assert.deepEqual(getParentSuggestions(tree, [], 'anna'), []);
   assert.deepEqual(getParentSuggestions(tree, ['paul', 'clara'], 'anna'), []);
   assert.deepEqual(getParentSuggestions(tree, ['missing'], 'anna'), []);
+  assert.deepEqual(tree, before);
+});
+
+test('family role suggestions follow adjacent display generations regardless of selection order and preserve data', () => {
+  const tree = demoTree();
+  const before = structuredClone(tree);
+  assert.deepEqual(getFamilyLinkSuggestion(tree, ['felix', 'clara', 'anna', 'paul']), {
+    parentIds: ['clara', 'paul'], childIds: ['felix', 'anna'],
+  });
+  assert.deepEqual(getFamilyLinkSuggestion(tree, ['clara', 'otto', 'martha']), {
+    parentIds: ['otto', 'martha'], childIds: ['clara'],
+  });
+  assert.deepEqual(tree, before);
+});
+
+test('ambiguous, skipped-generation and invalid family proposals leave roles open', () => {
+  const tree = demoTree();
+  const before = structuredClone(tree);
+  for (const ids of [[], ['otto'], ['otto', 'martha'], ['otto', 'paul', 'anna'],
+    ['otto', 'anna'], ['otto', 'missing'], ['otto', 'otto', 'paul'],
+    ['paul', 'clara', 'johanna', 'anna'], ['johanna', 'anna']]) {
+    assert.equal(getFamilyLinkSuggestion(tree, ids), null, ids.join(', '));
+  }
+  assert.deepEqual(tree, before);
+});
+
+test('linking existing partners preserves other partnerships, order and source data and is idempotent', () => {
+  const tree = demoTree();
+  const before = structuredClone(tree);
+  const result = linkPeople(tree, { partnerIds: ['paul', 'johanna'] });
+  assert.deepEqual(result.people.find(p => p.id === 'paul').partnerIds, ['clara', 'johanna']);
+  assert.deepEqual(result.people.find(p => p.id === 'johanna').partnerIds, ['paul']);
+  assert.deepEqual(result.people.map(p => p.id), tree.people.map(p => p.id));
+  assert.deepEqual(linkPeople(result, { partnerIds: ['johanna', 'paul'] }), result);
+  assert.deepEqual(tree, before);
+});
+
+test('linking two parents to several existing children preserves known parents without inventing partnerships', () => {
+  const tree = validateTree({ ...createTree(), people: [
+    createPerson({ id: 'a', firstName: 'Alex' }),
+    createPerson({ id: 'b', firstName: 'Bela' }),
+    createPerson({ id: 'c', firstName: 'Chris', parentIds: ['a'] }),
+    createPerson({ id: 'd', firstName: 'Dora' }),
+  ] });
+  const before = structuredClone(tree);
+  const relationship = { parentIds: ['a', 'b'], childIds: ['c', 'd'] };
+  const result = linkPeople(tree, relationship);
+  assert.deepEqual(result.people.find(p => p.id === 'c').parentIds, ['a', 'b']);
+  assert.deepEqual(result.people.find(p => p.id === 'd').parentIds, ['a', 'b']);
+  assert.ok(result.people.every(p => !p.partnerIds.length));
+  assert.deepEqual(linkPeople(result, relationship), result);
+  assert.deepEqual(tree, before);
+});
+
+test('failed bulk links preserve every person when a later child exceeds parent limits or creates a cycle', () => {
+  const tree = demoTree();
+  const before = structuredClone(tree);
+  assert.throws(() => linkPeople(tree, { parentIds: ['otto'], childIds: ['clara', 'anna'] }), /höchstens zwei/);
+  assert.throws(() => linkPeople(tree, { parentIds: ['anna'], childIds: ['clara'] }), /Kreis/);
+  assert.throws(() => linkPeople(tree, { parentIds: ['otto'], childIds: ['otto'] }), /zugleich/);
+  assert.deepEqual(tree, before);
+});
+
+test('bulk links reject missing IDs, ambiguous modes, duplicate selections and incomplete roles', () => {
+  const tree = demoTree();
+  const before = structuredClone(tree);
+  for (const relationship of [
+    undefined, {}, { partnerIds: [] }, { partnerIds: ['otto'] },
+    { partnerIds: ['otto', 'martha', 'paul'] }, { partnerIds: ['otto', 'otto'] },
+    { partnerIds: ['otto', 'missing'] }, { parentIds: ['missing'], childIds: ['otto'] },
+    { parentIds: ['otto'], childIds: ['missing'] }, { parentIds: [], childIds: ['otto'] },
+    { parentIds: ['otto'], childIds: [] }, { parentIds: ['otto', 'otto'], childIds: ['clara'] },
+    { parentIds: ['otto'], childIds: ['clara', 'clara'] },
+    { parentIds: ['otto', 'martha', 'paul'], childIds: ['clara'] },
+    { partnerIds: ['otto', 'martha'], parentIds: ['paul'], childIds: ['clara'] },
+  ]) assert.throws(() => linkPeople(tree, relationship));
   assert.deepEqual(tree, before);
 });

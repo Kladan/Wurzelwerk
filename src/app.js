@@ -1,4 +1,4 @@
-import { createTree, createPerson, validateTree, upsertPerson, addRelative, getParentSuggestions, deletePerson, displayName, getGenerations, getTreeGenerations, demoTree } from './domain.js';
+import { createTree, createPerson, validateTree, upsertPerson, addRelative, linkPeople, getFamilyLinkSuggestion, getParentSuggestions, deletePerson, displayName, getGenerations, getTreeGenerations, demoTree } from './domain.js';
 import { loadTree, saveTree, downloadFile, safeFilename, STORAGE_KEY } from './storage.js';
 import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup, fitTreePrintText } from './report.js';
 
@@ -11,6 +11,9 @@ let loadError = '';
 try { tree = loadTree(); } catch { tree = createTree(); loadError = 'Die lokale Speicherung ist nicht lesbar oder nicht verfügbar. Sichere zuerst die Rohdaten. Über „Sicherung öffnen“ kannst du anschließend eine gültige Sicherung zur Wiederherstellung einlesen. Bestehende Daten bleiben bis zur bestätigten Wiederherstellung erhalten.'; }
 let view = 'tree';
 let selectedId = tree.people[0]?.id;
+let selectedIds = new Set(selectedId ? [selectedId] : []);
+let selectionAnchor = selectedId;
+let multipleSelection = false;
 let query = '';
 let undoTree = null;
 let toastTimer;
@@ -36,12 +39,14 @@ function commit(next, message, recovery = false) {
   // Undo restores a snapshot, so later changes must invalidate that snapshot.
   undoTree = null;
   if (!personById(selectedId)) selectedId = tree.people[0]?.id;
+  selectedIds = new Set([...selectedIds].filter(id => personById(id)));
+  if (!personById(selectionAnchor)) selectionAnchor = undefined;
   render();
   if (message) notify(message);
 }
 
 function personCard(person) {
-  return `<button class="person-card ${selectedId === person.id ? 'selected' : ''}" data-person="${e(person.id)}" data-node="${e(person.id)}" aria-pressed="${selectedId === person.id}">
+  return `<button class="person-card ${selectedIds.has(person.id) ? 'selected' : ''}" data-person="${e(person.id)}" data-node="${e(person.id)}" aria-pressed="${selectedIds.has(person.id)}">
     <span class="avatar">${initials(person)}</span><span class="person-name">${e(displayName(person))}</span>
     ${person.birthName ? `<span class="person-meta">geb. ${e(person.birthName)}</span>` : ''}<span class="person-dates">${e(lifespan(person))}</span>
     <span class="person-meta">${e(person.birthPlace || 'Geburtsort offen')}</span>
@@ -70,8 +75,70 @@ function emptyState() {
 function workspace() {
   if (!tree.people.length) return emptyState();
   const filtered = tree.people.filter(p => [displayName(p), p.birthName, p.birthPlace].join(' ').toLocaleLowerCase('de').includes(query.toLocaleLowerCase('de')));
-  const content = view === 'people' || query ? `<div class="person-list">${filtered.length ? filtered.sort((a,b) => displayName(a).localeCompare(displayName(b), 'de')).map(p => `<button class="list-person ${selectedId === p.id ? 'selected' : ''}" data-person="${e(p.id)}"><span class="avatar">${initials(p)}</span><span><strong>${e(displayName(p))}</strong><small>${e(lifespan(p))} · ${e(p.birthPlace || 'Ort offen')}</small></span><span aria-hidden="true">→</span></button>`).join('') : '<div class="empty-state"><h3>Keine Person gefunden</h3><p>Versuche einen anderen Namen oder Geburtsort.</p></div>'}</div>` : `<div class="tree-scroll"><div class="tree-canvas"><svg class="tree-lines" aria-hidden="true"></svg>${getTreeGenerations(tree).map((generation, index) => `<section class="generation-group" data-generation="${index}"><p class="generation-label">GENERATION ${String(index + 1).padStart(2, '0')}</p><div class="generation">${generation.map(personCard).join('')}</div></section>`).join('')}</div></div>`;
-  return `<div class="workspace"><section class="tree-panel"><div class="panel-header"><h2>${view === 'people' || query ? 'Personenverzeichnis' : 'Deine Familie im Überblick'}</h2><span class="muted">${view === 'people' || query ? `${filtered.length} Einträge` : 'Ältere Generationen oben'}</span></div>${content}<p class="tree-hint">${view === 'tree' && !query ? 'Gemeinsame Linien bündeln Eltern und Geschwister; Punkte markieren Verzweigungen. Wähle eine Person, um ihre Familienlinien hervorzuheben. Eltern über mehrere Generationen stehen als Verweis auf der Karte. Die Generation folgt den erfassten Eltern; ohne Elternangaben orientiert sie sich an Partnerschaften.' : 'Wähle eine Person, um ihre Geschichte und Verbindungen zu sehen.'}</p></section>${detailPanel()}</div>`;
+  const content = view === 'people' || query ? `<div class="person-list">${filtered.length ? filtered.sort((a,b) => displayName(a).localeCompare(displayName(b), 'de')).map(p => `<button class="list-person ${selectedIds.has(p.id) ? 'selected' : ''}" data-person="${e(p.id)}" aria-pressed="${selectedIds.has(p.id)}"><span class="avatar">${initials(p)}</span><span><strong>${e(displayName(p))}</strong><small>${e(lifespan(p))} · ${e(p.birthPlace || 'Ort offen')}</small></span><span aria-hidden="true">→</span></button>`).join('') : '<div class="empty-state"><h3>Keine Person gefunden</h3><p>Versuche einen anderen Namen oder Geburtsort.</p></div>'}</div>` : `<div class="tree-scroll"><div class="tree-canvas"><svg class="tree-lines" aria-hidden="true"></svg>${getTreeGenerations(tree).map((generation, index) => `<section class="generation-group" data-generation="${index}"><p class="generation-label">GENERATION ${String(index + 1).padStart(2, '0')}</p><div class="generation">${generation.map(personCard).join('')}</div></section>`).join('')}</div></div>`;
+  return `<div class="workspace"><section class="tree-panel"><div class="panel-header"><h2>${view === 'people' || query ? 'Personenverzeichnis' : 'Deine Familie im Überblick'}</h2><span class="muted">${view === 'people' || query ? `${filtered.length} Einträge` : 'Ältere Generationen oben'}</span></div>${selectionToolbar()}${content}<p class="tree-hint">${view === 'tree' && !query ? 'Gemeinsame Linien bündeln Eltern und Geschwister; Punkte markieren Verzweigungen. Wähle eine Person, um ihre Familienlinien hervorzuheben. Eltern über mehrere Generationen stehen als Verweis auf der Karte. Die Generation folgt den erfassten Eltern; ohne Elternangaben orientiert sie sich an Partnerschaften.' : 'Wähle eine Person, um ihre Geschichte und Verbindungen zu sehen.'}</p></section>${detailPanel()}</div>`;
+}
+
+function selectionToolbar() {
+  const visible = new Set((view === 'people' || query
+    ? tree.people.filter(p => [displayName(p), p.birthName, p.birthPlace].join(' ').toLocaleLowerCase('de').includes(query.toLocaleLowerCase('de')))
+    : tree.people).map(p => p.id));
+  const hidden = [...selectedIds].filter(id => !visible.has(id)).length;
+  return `<div class="selection-toolbar no-print" aria-label="Personenauswahl">
+    <span role="status">${selectedIds.size} ausgewählt${hidden ? ` · ${hidden} außerhalb der Ansicht` : ''}</span>
+    <div class="selection-actions">${action('multiple', 'Mehrfachauswahl', 'secondary small', `aria-pressed="${multipleSelection}"`)}${action('clearSelection', 'Auswahl aufheben', 'ghost small', selectedIds.size ? '' : 'disabled')}${action('linkPartners', 'Verpartnern', 'secondary small', selectedIds.size === 2 ? '' : 'disabled')}${action('linkFamily', 'Als Eltern / Kinder verknüpfen', 'secondary small', selectedIds.size >= 2 ? '' : 'disabled')}</div>
+    <small>Strg/⌘ + Klick: einzeln umschalten. Shift + Klick: Bereich in sichtbarer Reihenfolge. Im Mehrfachauswahl-Modus genügt Klick oder Enter/Leertaste. Für eine Partnerschaft genau zwei Personen wählen.</small>
+  </div>`;
+}
+
+function selectPerson(button, event) {
+  const id = button.dataset.person;
+  const isCard = button.matches('.person-card, .list-person');
+  const visibleIds = [...app.querySelectorAll('.person-card, .list-person')].map(node => node.dataset.person);
+  if (isCard && event.shiftKey && visibleIds.includes(selectionAnchor)) {
+    const from = visibleIds.indexOf(selectionAnchor);
+    const to = visibleIds.indexOf(id);
+    const range = visibleIds.slice(Math.min(from, to), Math.max(from, to) + 1);
+    selectedIds = new Set(event.ctrlKey || event.metaKey || multipleSelection ? [...selectedIds, ...range] : range);
+  } else if (isCard && (event.ctrlKey || event.metaKey || multipleSelection)) {
+    if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+    selectionAnchor = id;
+  } else {
+    selectedIds = new Set([id]);
+    selectionAnchor = id;
+  }
+  selectedId = id;
+  render();
+  app.querySelector(`.person-card[data-person="${CSS.escape(id)}"], .list-person[data-person="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+}
+
+function linkSelection(type) {
+  const ids = [...selectedIds];
+  if (type === 'partner') {
+    if (ids.length !== 2) return;
+    confirmChange('Ausgewählte Personen verpartnern?', ids.map(id => displayName(personById(id))).join(' und ') + ' werden als Paar verbunden. Bestehende Partnerschaften bleiben erhalten.', 'Partnerschaft speichern', () => commit(linkPeople(tree, { partnerIds: ids }), 'Partnerschaft gespeichert.'));
+    return;
+  }
+  if (ids.length < 2) return;
+  const suggestion = getFamilyLinkSuggestion(tree, ids);
+  showDialog(`<form><div class="dialog-header"><h2 id="dialog-title">Eltern und Kinder zuordnen</h2><button type="button" class="button ghost" data-close aria-label="Schließen">✕</button></div><div class="dialog-body"><p>Wähle für jede ausgewählte Person eine Rolle: ein oder zwei Elternteile und mindestens ein Kind. Alle gewählten Eltern werden mit allen gewählten Kindern verbunden. Bestehende Eltern bleiben erhalten; Partnerschaften werden separat erfasst.</p><div class="notice error" role="alert" hidden></div><div class="family-roles">${ids.map(id => `<label class="field"><span>${e(displayName(personById(id)))}</span><select name="role-${e(id)}" required><option value="">Rolle wählen …</option><option value="parent">Elternteil</option><option value="child">Kind</option></select></label>`).join('')}</div></div><div class="dialog-actions"><button type="button" class="button secondary" data-close-secondary>Abbrechen</button><button type="submit" class="button primary">Verknüpfungen speichern</button></div></form>`, data => {
+    const parentIds = ids.filter(id => data.get(`role-${id}`) === 'parent');
+    const childIds = ids.filter(id => data.get(`role-${id}`) === 'child');
+    commit(linkPeople(tree, { parentIds, childIds }), 'Eltern und Kinder verknüpft.');
+    editor.close();
+  });
+  editor.querySelector('[data-close-secondary]').onclick = requestCloseEditor;
+  const hint = document.createElement('p');
+  hint.className = 'field-hint';
+  hint.textContent = suggestion
+    ? 'Aus zwei benachbarten Generationen vorgeschlagen: oben Eltern, darunter Kinder. Bitte prüfen und bei Bedarf ändern. Erst beim Speichern werden die Beziehungen hergestellt.'
+    : 'Aus der Auswahl lässt sich keine eindeutige, gültige Zuordnung über zwei benachbarte Generationen vorschlagen. Bitte die Rollen selbst wählen.';
+  editor.querySelector('.family-roles').before(hint);
+  if (suggestion) {
+    for (const select of editor.querySelectorAll('.family-roles select')) {
+      select.value = suggestion.parentIds.includes(select.name.slice('role-'.length)) ? 'parent' : 'child';
+    }
+  }
 }
 
 function render() {
@@ -108,6 +175,14 @@ function drawConnections() {
 }
 
 function showDialog(markup, onSubmit) {
+  const opener = document.activeElement;
+  const openerAction = opener?.dataset.action;
+  editor.addEventListener('close', () => {
+    const target = opener?.isConnected ? opener
+      : (openerAction && app.querySelector(`[data-action="${CSS.escape(openerAction)}"]:not(:disabled)`))
+        || (selectedId && app.querySelector(`.person-card[data-person="${CSS.escape(selectedId)}"], .list-person[data-person="${CSS.escape(selectedId)}"]`));
+    target?.focus({ preventScroll: true });
+  }, { once: true });
   editor.innerHTML = markup;
   editor.dataset.dirty = '';
   editor.showModal();
@@ -130,6 +205,8 @@ function editPerson(person = createPerson(), relationship = null) {
       const next = relationship ? addRelative(tree, nextPerson, relationship.id, relationship.type) : upsertPerson(tree, nextPerson);
       commit(next, 'Person gespeichert.');
       selectedId = person.id;
+      selectedIds = new Set([person.id]);
+      selectionAnchor = person.id;
       render();
       editor.close();
     });
@@ -174,6 +251,10 @@ async function importBackup(file) {
 }
 
 const actions = {
+  multiple: () => { multipleSelection = !multipleSelection; render(); app.querySelector('[data-action="multiple"]')?.focus(); },
+  clearSelection: () => { selectedIds.clear(); selectionAnchor = undefined; render(); app.querySelector('[data-action="multiple"]')?.focus(); },
+  linkPartners: () => linkSelection('partner'),
+  linkFamily: () => linkSelection('family'),
   add: () => editPerson(),
   edit: () => editPerson(personById(selectedId)),
   child: () => editPerson(createPerson({ lastName: personById(selectedId).lastName, parentIds: [selectedId] }), { type: 'child', id: selectedId }),
@@ -197,9 +278,7 @@ app.addEventListener('click', event => {
   try {
     if (button.dataset.view) { view = button.dataset.view; query = ''; render(); }
     else if (button.dataset.person) {
-      selectedId = button.dataset.person;
-      render();
-      app.querySelector(`[data-person="${CSS.escape(selectedId)}"]`)?.focus({ preventScroll: true });
+      selectPerson(button, event);
     }
     else if (button.dataset.action) actions[button.dataset.action]?.();
   } catch (error) { notify(error.message); }

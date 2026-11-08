@@ -1,5 +1,21 @@
 # Umsetzungs- und Prüfnotiz
 
+## Rollen aus Generationen vorschlagen (8. November 2026)
+
+Die technische Leitung ergänzte eine reine Vorschlagsfunktion: Bei genau zwei benachbarten dargestellten Generationen wird die obere als Eltern und die untere als Kinder vorbelegt, sofern die gesamte Änderung gültig ist. Manuelle Änderungen und ausdrückliches Speichern bleiben möglich. Zwei neue Fachtests prüfen Auswahlreihenfolge, Partnergenerationen, Datenerhalt, mehrdeutige Auswahlen, Generationssprünge und Elternlimit. `npm.cmd run check` bestand mit 45 Tests und Build.
+
+Chrome Headless im isolierten Testprofil mit fiktiven Beispieldaten bestätigte die vorbelegten Rollen, deren Änderbarkeit, unveränderte Speicherung vor Bestätigung und die korrekten Elternverbindungen nach Bestätigung. Dieselbe Generation, ein Generationssprung und ein überschrittenes Elternlimit ließen die Rollen offen; keine Laufzeitfehler beobachtet. Keine zusätzliche unabhängige Agentenprüfung für diese kleine Folgeänderung. Bestehende Grenzen für echte Touchgeräte, Screenreader und andere Browser gelten weiter. Generationen sind lediglich Vorschlagshilfe und kein Beleg einer Verwandtschaft.
+
+## Mehrfachauswahl und Verknüpfung vorhandener Personen (8. November 2026)
+
+Ein Engineering-Agent ergänzte die reine Fachfunktion für eine Partnerschaft zwischen zwei vorhandenen Personen sowie die gemeinsame Verknüpfung von einem oder zwei Elternteilen mit mehreren Kindern. Vier neue Tests prüfen Beziehungserhalt, Wiederholung ohne Duplikate, vollständige Ablehnung bei Elternlimit oder Kreis sowie ungültige Kennungen und Rollen. Die technische Leitung integrierte Karten-/Listenauswahl mit Strg/⌘, Shift-Bereich und einem Mehrfachauswahl-Modus für Touch und Tastatur. Eltern- und Kindrollen werden ausdrücklich im Dialog vergeben; ausgefilterte Auswahlen bleiben sichtbar gezählt.
+
+Derselbe Agent prüfte die UI-Integration anschließend per Codeinspektion. Gefundene beschädigte Sonderzeichen wurden korrigiert und die empfohlene Fokuswiederherstellung nach Dialogabschluss ergänzt. Die technische Leitung prüfte die Fachintegration und führte die Browserabläufe unabhängig von der Implementierung der Fachfunktion aus.
+
+Chrome Headless mit eigenem Testprofil und fünf fiktiven Personen bestand Strg-/Meta-Umschalten, Shift-Bereich, einfache Auswahl, Partnerschaft, zwei Eltern für zwei Kinder, Speicherfehler mit unveränderten Daten und erhaltenen Rollen sowie erfolgreichen Wiederholungsversuch. Eine kreisbildende Elternverbindung wurde ohne Datenänderung abgewiesen. Native Leertastenaktivierung und Fokus, Auswahl ohne Zusatztasten, ausgefilterte Auswahlen einschließlich Namensanzeige im Bestätigungsdialog, Seiten-/Dialogbreite bei 390 Pixeln und Druckvorbereitung ohne Auswahlleiste wurden geprüft. Ein Screenshot des mobilen Rollendialogs wurde visuell geprüft. Die Druckvorbereitung enthielt trotz Suche alle fünf Personen und änderte den Speicher nicht. Keine JavaScript-Laufzeitfehler beobachtet. Die CLI scheiterte im Sandboxkonto an `uv_os_get_passwd`; die Prüfung erfolgte anschließend direkt über das lokale Chrome-DevTools-Protokoll. Testprofil, Skript und Screenshot bleiben im ignorierten Arbeitsverzeichnis.
+
+`npm.cmd run check` bestand mit 43 Tests, Syntaxprüfung und statischem Build. Prüfgrenzen: keine echten Touchgeräte, keine Screenreader, keine anderen Browser, kein Lasttest großer Auswahlen und kein physischer Ausdruck. Die Linienhervorhebung folgt weiterhin einer Fokusperson, die Kartenmarkierung der gesamten Auswahl.
+
 ## Partnerschaften ohne bekannte Eltern und direkte Verwandtenanlage (8. November 2026)
 
 Ein Engineering-Agent ergänzte Generationen für elternlose Partner, die vollständig validierte Anlage von Eltern, Partnern und Kindern sowie unverbindliche Vorschläge für den zweiten Elternteil. Die technische Leitung integrierte direkte Aktionen in den Personendetails, feste Bezugspersonen im Formular und eine Elternsuche, die ausgewählte Einträge erhält. Es werden keine Vorfahren oder Datumsangaben erfunden. Die Generationsregel gilt für Bildschirm, Chronik und Baumdruck.

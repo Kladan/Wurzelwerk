@@ -135,6 +135,53 @@ export function addRelative(tree, input, relativeId, relationship) {
     : next;
 }
 
+/** Display generations suggest roles, never establish ancestry without confirmation. */
+export function getFamilyLinkSuggestion(tree, selectedIds) {
+  if (!Array.isArray(selectedIds) || selectedIds.length < 2 || new Set(selectedIds).size !== selectedIds.length) return null;
+  const levels = new Map(getGenerations(tree).flatMap((row, level) => row.map(person => [person.id, level])));
+  if (selectedIds.some(id => !levels.has(id))) return null;
+  const generations = [...new Set(selectedIds.map(id => levels.get(id)))].sort((a, b) => a - b);
+  if (generations.length !== 2 || generations[1] !== generations[0] + 1) return null;
+  const suggestion = {
+    parentIds: selectedIds.filter(id => levels.get(id) === generations[0]),
+    childIds: selectedIds.filter(id => levels.get(id) === generations[1]),
+  };
+  // Existing parent limits and ancestry must also permit the entire proposal.
+  try { linkPeople(tree, suggestion); } catch { return null; }
+  return suggestion;
+}
+
+/** Link existing people in one validated change, preserving all existing links. */
+export function linkPeople(tree, relationship) {
+  const current = validateTree(tree);
+  if (!relationship || typeof relationship !== 'object' || Array.isArray(relationship)) throw new Error('Unbekannte Verbindungsart.');
+  const partnership = Object.hasOwn(relationship, 'partnerIds');
+  if (partnership && (Object.hasOwn(relationship, 'parentIds') || Object.hasOwn(relationship, 'childIds'))) throw new Error('Bitte nur eine Verbindungsart wählen.');
+  const partnerIds = partnership ? references(relationship.partnerIds, 'Partnerschaft', 2) : [];
+  const parentIds = partnership ? [] : references(relationship.parentIds, 'Eltern', 2);
+  const childIds = partnership ? [] : references(relationship.childIds, 'Kinder', MAX_PEOPLE);
+  if (partnership ? partnerIds.length !== 2 : !parentIds.length || !childIds.length) throw new Error(partnership
+    ? 'Für eine Partnerschaft bitte genau zwei Personen auswählen.'
+    : 'Bitte mindestens einen Elternteil und ein Kind auswählen.');
+  const byId = new Map(current.people.map(person => [person.id, person]));
+  for (const id of [...partnerIds, ...parentIds, ...childIds]) {
+    if (!byId.has(id)) throw new Error('Eine Beziehung verweist auf eine unbekannte Person.');
+  }
+  if (parentIds.some(id => childIds.includes(id))) throw new Error('Eine Person kann nicht zugleich Elternteil und Kind derselben Verbindung sein.');
+  if (partnership) {
+    const [a, b] = partnerIds.map(id => byId.get(id));
+    a.partnerIds = [...new Set([...a.partnerIds, b.id])];
+    b.partnerIds = [...new Set([...b.partnerIds, a.id])];
+  } else {
+    for (const id of childIds) {
+      const child = byId.get(id);
+      child.parentIds = [...new Set([...child.parentIds, ...parentIds])];
+      if (child.parentIds.length > 2) throw new Error(`${displayName(child)}: Es dürfen höchstens zwei Eltern eingetragen sein.`);
+    }
+  }
+  return validateTree(current);
+}
+
 export function deletePerson(tree, id) {
   const current = validateTree(tree);
   return { ...current, people: current.people.filter(person => person.id !== id).map(person => ({

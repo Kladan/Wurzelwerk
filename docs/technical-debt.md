@@ -1,5 +1,7 @@
 # Konkrete Grenzen und nächste Schritte
 
+- **Mehrfachauswahl:** Shift folgt der sichtbaren Karten-/Listenreihenfolge, auch über Generationsgrenzen. Gefilterte Personen bleiben ausgewählt und werden gezählt; die Auswahl wird nur für die laufende Sitzung gehalten. Fachregeln und Chrome-Bedienabläufe sind mit kleinen fiktiven Familien geprüft. Kein Lasttest des Rollendialogs mit Tausenden ausgewählter Personen, keine Prüfung auf echten Touchgeräten oder mit Screenreader und keine anderen Browser geprüft. Linien betonen weiterhin die zuletzt fokussierte Person; die Karten markieren die gesamte Auswahl.
+
 - **Generationen und Elternvorschläge:** Ohne erfasste Eltern orientieren sich Personen an ihren Partnern. Bei widersprüchlichen Partnerhinweisen fallen betroffene und nachgelagerte Gruppen auf die Elternbeziehungen zurück; bekannte Eltern haben Vorrang. Eine frei gewählte Generationsposition wird nicht gespeichert. Elternvorschläge sind unverbindlich und wurden im Browser mit kleinen fiktiven Familien geprüft; ein Lasttest der interaktiven Suche und Vorschläge mit 5.000 Personen fehlt.
 
 - **Gleichzeitige Bearbeitung:** Der localStorage-Adapter erkennt einen zuvor geänderten Speicherstand. Eine atomare Prüfung und Speicherung über mehrere Fenster fehlt. Derzeit nur ein Bearbeitungsfenster verwenden. Nächster Schritt bei Bedarf: versionierte Schreibtransaktionen mit IndexedDB und gezielter Mehrfensterprüfung.
