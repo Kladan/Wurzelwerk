@@ -1,8 +1,49 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTree, createPerson, validateTree, demoTree, displayName } from '../src/domain.js';
+import { createTree, createPerson, validateTree, demoTree, displayName, treeForPrint } from '../src/domain.js';
 import { loadTree, saveTree, safeFilename, STORAGE_KEY } from '../src/storage.js';
 import { escapeHtml, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup } from '../src/report.js';
+
+test('print selection omits people and their references from every output without changing stored data', () => {
+  const tree = validateTree({ ...createTree('Fiktiver Auszug'), people: [
+    createPerson({ id: 'grandparent', firstName: 'Grosselternname' }),
+    createPerson({ id: 'parent', firstName: 'Verborgenername', parentIds: ['grandparent'], partnerIds: ['partner'], notes: 'Verborgene Biografie', labels: ['Verstecktes Label'] }),
+    createPerson({ id: 'partner', firstName: 'Partnername', partnerIds: ['parent'] }),
+    createPerson({ id: 'child', firstName: '<Kind>', parentIds: ['parent'], notes: 'Sichtbare Erinnerung', labels: ['Sichtbares Label'] }),
+  ] });
+  const before = JSON.stringify(tree);
+  const storage = setupStorage();
+  loadTree();
+  saveTree(tree);
+  const saved = storage.value;
+  for (const hiddenPersonIds of [[], ['parent'], ['grandparent', 'parent', 'partner'], tree.people.map(p => p.id), ['missing']]) {
+    const projected = treeForPrint(tree, hiddenPersonIds);
+    validateTree(projected);
+    assert.equal(projected.people.length, tree.people.filter(p => !hiddenPersonIds.includes(p.id)).length);
+    if (hiddenPersonIds.includes('parent')) {
+      assert.deepEqual(projected.people.find(p => p.id === 'child')?.parentIds ?? [], []);
+      assert.deepEqual(projected.people.find(p => p.id === 'partner')?.partnerIds ?? [], []);
+    }
+    for (const render of [reportMarkup, reportDocument, treePrintMarkup]) {
+      for (const singlePage of [false, true]) {
+        const output = render(tree, { hiddenPersonIds, includeLabels: true, includeIndex: true, singlePage });
+        for (const person of tree.people) {
+          assert.equal(output.includes(escapeHtml(displayName(person))), !hiddenPersonIds.includes(person.id));
+        }
+        if (hiddenPersonIds.includes('parent')) {
+          assert.ok(output.includes('Auszug:'));
+          assert.ok(!output.includes('Verborgene Biografie'));
+          assert.ok(!output.includes('Verstecktes Label'));
+        }
+        assert.ok(!output.includes('undefined'));
+      }
+    }
+    assert.equal(JSON.stringify(tree), before);
+    assert.equal(storage.value, saved);
+  }
+  assert.match(treePrintMarkup(tree, { hiddenPersonIds: tree.people.map(p => p.id) }), /Alle Personen sind/);
+  assert.equal(reportMarkup(tree), reportMarkup(tree, { hiddenPersonIds: [] }));
+});
 
 class MemoryStorage {
   value = null;

@@ -1,5 +1,7 @@
 # Konkrete Grenzen und nächste Schritte
 
+- **Druckauswahl:** Gilt nur bis zum Neuladen; keine gespeicherten Auswahlprofile oder automatische Auswahl ganzer Zweige. Freitexte sichtbarer Personen können ausgeblendete Namen enthalten. Generationen werden für die Ausgabe neu berechnet. Chrome mit 20 fiktiven Personen, Tastatur, 390-Pixel-Dialog und A4-PDF geprüft; keine Screenreader-/anderen Browserprüfungen, kein Lasttest der Liste mit 5.000 Personen, keine PDF-Rasterprüfung und kein physischer Ausdruck. A3 für diese Änderung nicht erneut im Browser geprüft.
+
 - **Große Baumansicht:** Fensterfüllendes Layout ab 1151 Pixeln, darunter normaler Seitenfluss; Chrome mit 96 fiktiven Personen und acht Generationen auf 2560 × 1440 sowie 390 × 844 Pixeln geprüft. Keine anderen Browser, Screenreader oder extremen Browserzoomstufen geprüft. Die Ansicht besitzt keine eigene Zoomsteuerung und keine ausblendbare Detailspalte.
 
 - **Labels:** Freie Begriffe ohne automatische Deutung, Filter oder Belegprüfung. Die Ausgabeoption gilt nur für die laufende Sitzung; JSON-Sicherungen enthalten stets alle Labels. Chrome-Prüfung umfasst Tastaturreihenfolge/Fokus, 390-Pixel-Layout mit 20 langen Labels, Speichererhalt beim Druck und eine A4-PDF mit kurzen Labels. Lange Labelzeilen werden auf Druckkarten gekürzt und vollständig im Anhang ausgegeben. Keine visuelle Rasterprüfung der PDF, kein physischer Ausdruck und keine Prüfung anderer Browser oder Screenreader.

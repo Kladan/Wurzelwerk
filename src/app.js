@@ -22,6 +22,8 @@ let includeTreeIndex = false;
 let includeLabels = false;
 let singlePageTree = false;
 let treePaper = 'A4';
+let hiddenPersonIds = new Set();
+const printSelectionOption = () => action('printSelection', `Personen für Druck auswählen (${tree.people.filter(p => !hiddenPersonIds.has(p.id)).length}/${tree.people.length})`, 'secondary small');
 const treePrintOptions = () => `<fieldset class="tree-print-options"><legend>Baumdruck</legend>
   <label class="print-index-option"><input type="checkbox" id="print-tree-single" ${singlePageTree ? 'checked' : ''} aria-describedby="tree-print-hint"> Gesamten Baum auf eine Seite</label>
   <label class="print-index-option">Papier <select id="print-tree-paper"><option value="A4" ${treePaper === 'A4' ? 'selected' : ''}>A4 quer</option><option value="A3" ${treePaper === 'A3' ? 'selected' : ''}>A3 quer</option></select></label>
@@ -43,9 +45,10 @@ function notify(message) {
   toastTimer = setTimeout(() => { toast.hidden = true; }, 6000);
 }
 
-function commit(next, message, recovery = false) {
+function commit(next, message, recovery = false, resetPrintSelection = false) {
   if (loadError && !recovery) throw new Error(loadError);
   tree = saveTree(next);
+  if (resetPrintSelection) hiddenPersonIds.clear();
   loadError = '';
   // Undo restores a snapshot, so later changes must invalidate that snapshot.
   undoTree = null;
@@ -161,7 +164,7 @@ function render() {
     <main class="main"><header class="page-header no-print"><div><p class="eyebrow">VERGANGENHEIT BEWAHREN. VERBINDUNGEN ENTDECKEN.</p><h1>${e(tree.title)}</h1><p class="page-subtitle">${view === 'report' ? 'Eine Familiengeschichte zum Aufbewahren und Weitergeben.' : 'Jeder Mensch ein Kapitel. Gemeinsam eine Geschichte.'}</p></div><div class="header-actions">${action('rename', 'Titel ändern', 'ghost')}${view === 'report' ? action('print', 'Drucken / PDF', 'primary') : action('print', 'Baum drucken / PDF', 'secondary') + action('add', '+ Person hinzufügen', 'primary')}</div></header>
     ${loadError ? `<div class="notice error no-print" role="alert">${e(loadError)} ${action('raw', 'Rohdaten sichern', 'secondary small')}</div>` : ''}
     <section class="stats no-print" aria-label="Stammbaum in Zahlen"><div class="stat"><span class="stat-value">${tree.people.length}</span><span>Menschen im Stammbaum</span></div><div class="stat"><span class="stat-value">${generations.length}</span><span>erfasste Generationen</span></div><div class="stat"><span class="stat-value">${new Set(tree.people.map(p => p.birthPlace).filter(Boolean)).size}</span><span>Geburtsorte</span></div><div class="stat privacy-stat"><span class="stat-value">Lokal.</span><span>Deine Daten bleiben bei dir</span></div></section>
-    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${labelOption()}${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree, { includeLabels }) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div>${view === 'tree' && tree.people.length ? action('expandTree', expandedTree ? 'Ansicht verkleinern' : 'Baum vergrößern', 'secondary small', `aria-pressed="${expandedTree}" title="Große Baumansicht; mit Escape verlassen"`) : ''}${labelOption()}${treePrintOptions()}<label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
+    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält die für den Druck gewählten Personen mit Beziehungen, Erinnerungen und Quellen.</p>${printSelectionOption()}${labelOption()}${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree, { includeLabels, hiddenPersonIds }) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div>${view === 'tree' && tree.people.length ? action('expandTree', expandedTree ? 'Ansicht verkleinern' : 'Baum vergrößern', 'secondary small', `aria-pressed="${expandedTree}" title="Große Baumansicht; mit Escape verlassen"`) : ''}${printSelectionOption()}${labelOption()}${treePrintOptions()}<label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
     <footer class="app-footer no-print"><span>WURZELWERK</span><span>${loadError ? 'Speicherung prüfen' : 'Änderungen werden in diesem Browser lokal gespeichert.'}</span>${undoTree ? action('undo', 'Letzte Löschung rückgängig', 'ghost small') : ''}</footer></main></div>`;
   if (view === 'tree' && !query) requestAnimationFrame(() => {
     const scroll = document.querySelector('.tree-scroll');
@@ -257,11 +260,44 @@ async function importBackup(file) {
   try {
     if (file.size > 25 * 1024 * 1024) throw new Error('Die Datei ist zu groß. Maximal 25 MB sind erlaubt.');
     const next = validateTree(JSON.parse(await file.text()));
-    confirmChange('Sicherung öffnen?', `„${next.title}“ mit ${next.people.length} Personen ersetzt den aktuellen Stammbaum. ${loadError ? 'Der bisherige lokale Speicher ist nicht lesbar. Lade vor dem Ersetzen die Rohdaten herunter, wenn du sie noch nicht gesichert hast.' : 'Speichere deine bisherige Arbeit vorher als Sicherung.'}`, 'Stammbaum öffnen', () => { commit(next, 'Sicherung geöffnet.', true); undoTree = null; render(); });
+    confirmChange('Sicherung öffnen?', `„${next.title}“ mit ${next.people.length} Personen ersetzt den aktuellen Stammbaum. ${loadError ? 'Der bisherige lokale Speicher ist nicht lesbar. Lade vor dem Ersetzen die Rohdaten herunter, wenn du sie noch nicht gesichert hast.' : 'Speichere deine bisherige Arbeit vorher als Sicherung.'}`, 'Stammbaum öffnen', () => { commit(next, 'Sicherung geöffnet.', true, true); undoTree = null; render(); });
   } catch (error) { notify(error instanceof SyntaxError ? 'Diese Datei enthält kein gültiges JSON.' : error.message); }
 }
 
+function editPrintSelection() {
+  const hidden = new Set(hiddenPersonIds);
+  const people = [...tree.people].sort((a, b) => displayName(a).localeCompare(displayName(b), 'de'));
+  showDialog(`<form><div class="dialog-header"><h2 id="dialog-title">Personen für Druck auswählen</h2></div>
+    <div class="dialog-body"><p>Nur angehakte Personen erscheinen in Baumdruck, Chronik und HTML-Dokument. Die Auswahl gilt bis zum Neuladen. Alle Personen bleiben gespeichert. Beziehungen zu ausgeblendeten Personen entfallen in der Ausgabe; Freitexte bleiben unverändert.</p>
+    <label class="field"><span>Personen suchen</span><input type="search" id="print-person-search" placeholder="Name suchen …"></label>
+    <div class="print-selection-actions"><button type="button" class="button secondary small" id="print-select-all">Alle einblenden</button><button type="button" class="button ghost small" id="print-select-none">Alle ausblenden</button></div>
+    <p id="print-selection-count" role="status"></p><div id="print-person-options" class="relationship-options print-person-options"></div>
+    <div class="notice error" role="alert" hidden></div></div>
+    <div class="dialog-actions"><button type="button" class="button secondary" data-close>Abbrechen</button><button class="button primary" type="submit">Auswahl übernehmen</button></div></form>`, () => {
+      hiddenPersonIds = hidden;
+      render();
+      editor.close();
+    });
+  const options = editor.querySelector('#print-person-options');
+  const search = editor.querySelector('#print-person-search');
+  function update() {
+    const query = search.value.trim().toLocaleLowerCase('de');
+    const matches = people.filter(p => [displayName(p), p.firstName, p.lastName].join(' ').toLocaleLowerCase('de').includes(query));
+    options.innerHTML = matches.map(p => `<label><input type="checkbox" value="${e(p.id)}" ${hidden.has(p.id) ? '' : 'checked'}><span>${e(displayName(p))} · ${e(lifespan(p))}</span></label>`).join('') || '<p>Keine passenden Personen gefunden.</p>';
+    editor.querySelector('#print-selection-count').textContent = `${people.filter(p => !hidden.has(p.id)).length} von ${people.length} Personen im Druck. Die Schaltflächen gelten für alle Personen, auch außerhalb der Suche.`;
+  }
+  search.addEventListener('input', update);
+  options.addEventListener('change', event => {
+    if (event.target.checked) hidden.delete(event.target.value); else hidden.add(event.target.value);
+    editor.querySelector('#print-selection-count').textContent = `${people.filter(p => !hidden.has(p.id)).length} von ${people.length} Personen im Druck. Die Schaltflächen gelten für alle Personen, auch außerhalb der Suche.`;
+  });
+  editor.querySelector('#print-select-all').onclick = () => { hidden.clear(); editor.dataset.dirty = 'true'; update(); };
+  editor.querySelector('#print-select-none').onclick = () => { people.forEach(p => hidden.add(p.id)); editor.dataset.dirty = 'true'; update(); };
+  update();
+}
+
 const actions = {
+  printSelection: editPrintSelection,
   expandTree: () => {
     expandedTree = !expandedTree;
     render();
@@ -279,10 +315,10 @@ const actions = {
   backup: () => { if (loadError) { actions.raw(); return; } downloadFile(JSON.stringify(tree, null, 2), `${safeFilename(tree.title)}-${new Date().toISOString().slice(0,10)}.json`, 'application/json'); notify('Sicherung heruntergeladen. Bewahre sie an einem sicheren Ort auf.'); },
   raw: () => { const raw = localStorage.getItem(STORAGE_KEY); if (raw) downloadFile(raw, 'Wurzelwerk-Rohdaten.json', 'application/json'); else notify('Keine gespeicherten Rohdaten verfügbar.'); },
   import: () => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json,application/json'; input.onchange = () => importBackup(input.files[0]); input.click(); },
-  html: () => downloadFile(reportDocument(tree, { includeLabels }), `${safeFilename(tree.title)}-Chronik.html`, 'text/html;charset=utf-8'),
+  html: () => downloadFile(reportDocument(tree, { includeLabels, hiddenPersonIds }), `${safeFilename(tree.title)}-Chronik.html`, 'text/html;charset=utf-8'),
   print: () => window.print(),
-  demo: () => confirmChange('Beispiel erkunden?', 'Ein erfundener Stammbaum mit sieben Personen zeigt dir die Möglichkeiten. Er wird lokal gespeichert.', 'Beispiel laden', () => commit(demoTree(), 'Fiktives Beispiel geladen.')),
-  new: () => confirmChange('Neuen Stammbaum beginnen?', 'Der aktuelle Stammbaum wird in diesem Browser ersetzt. Lade vorher eine Sicherung herunter, wenn du ihn behalten möchtest.', 'Leeren Stammbaum anlegen', () => { commit(createTree(), 'Neuer Stammbaum angelegt.'); undoTree = null; render(); }),
+  demo: () => confirmChange('Beispiel erkunden?', 'Ein erfundener Stammbaum mit sieben Personen zeigt dir die Möglichkeiten. Er wird lokal gespeichert.', 'Beispiel laden', () => commit(demoTree(), 'Fiktives Beispiel geladen.', false, true)),
+  new: () => confirmChange('Neuen Stammbaum beginnen?', 'Der aktuelle Stammbaum wird in diesem Browser ersetzt. Lade vorher eine Sicherung herunter, wenn du ihn behalten möchtest.', 'Leeren Stammbaum anlegen', () => { commit(createTree(), 'Neuer Stammbaum angelegt.', false, true); undoTree = null; render(); }),
   rename: () => showDialog(`<form><div class="dialog-header"><h2 id="dialog-title">Dein Familientitel</h2></div><div class="dialog-body"><label class="field"><span>Titel des Stammbaums</span><input name="title" required maxlength="200" value="${e(tree.title)}"></label><div class="notice error" role="alert" hidden></div></div><div class="dialog-actions"><button type="button" class="button secondary" data-close>Abbrechen</button><button type="submit" class="button primary">Titel speichern</button></div></form>`, data => { commit({ ...tree, title: data.get('title') }, 'Titel gespeichert.'); editor.close(); }),
   delete: () => confirmChange('Person löschen?', `${displayName(personById(selectedId))} und alle Verbindungen zu dieser Person werden entfernt. Die anderen Personen bleiben erhalten.`, 'Person löschen', () => { const previous = tree; commit(deletePerson(tree, selectedId), 'Person gelöscht. Du kannst die Löschung unten rückgängig machen.'); undoTree = previous; render(); }),
   undo: () => { commit(undoTree, 'Löschung rückgängig gemacht.'); undoTree = null; render(); },
@@ -344,7 +380,7 @@ window.addEventListener('beforeprint', () => {
   printFocus = document.activeElement;
   const output = document.createElement('div');
   output.id = 'tree-print-output';
-  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex, includeLabels, singlePage: singlePageTree, paper: treePaper });
+  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex, includeLabels, hiddenPersonIds, singlePage: singlePageTree, paper: treePaper });
   output.style.cssText = 'display:block;position:fixed;visibility:hidden;pointer-events:none';
   document.body.append(output);
   fitTreePrintText(output);

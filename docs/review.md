@@ -1,5 +1,17 @@
 # Umsetzungs- und Prüfnotiz
 
+## Personen für den Druck ausblenden (9. November 2026)
+
+Eine durchsuchbare Checkboxliste steuert gemeinsam Baumdruck, Chronikvorschau und HTML-Dokument. Alle ein-/ausblenden, Abbrechen, Auswahlzähler und Wiederherstellen sind möglich. Die Auswahl gilt für die Sitzung; erfolgreiche Sicherungsimporte, neue Bäume und Beispieldaten setzen sie zurück. Die reine Ausgabeprojektion in `src/domain.js` entfernt ausgeblendete Personen und ihre Beziehungsreferenzen. Originaldaten, Bearbeitungsansicht und Sicherungen bleiben vollständig. Es entstehen keine Ersatzbeziehungen; die Ausgabe berechnet Generationen neu und kennzeichnet sich als Auszug. Freitexte bleiben unverändert.
+
+Unabhängiger Engineering-/Datenerhalt-Review: 25 Report-/Speichertests und 100 zusätzliche deterministische fiktive 30-Personen-Bäume mit sechs Ausgabekombinationen bestanden. Gefunden und behoben wurden ein fehlendes Zurücksetzen beim Sicherungsimport und ein falsches Trennzeichen im Dialog. Der Reviewer bestätigte beide Korrekturen; keine offenen Reviewbefunde. Er führte keine eigene Browserprüfung aus.
+
+Ausgeführt: `npm.cmd run check`, 62 Tests erfolgreich, Syntaxprüfung und statischer Build bestanden. Der neue Verhaltenstest prüft ausgeblendete Eltern/Partner, nur ein sichtbares Kind, alle/keine ausgeblendeten Personen, unbekannte IDs, gültige projizierte Referenzen, maskierte Namen, Verzeichnisse, Labels, Einseitenoption und Datenerhalt in allen drei Ausgabewegen.
+
+Chrome Headless mit getrenntem Profil und 20 fiktiven Personen: Checkbox per Leertaste, Fokuswiederherstellung, 20 unveränderte Bildschirmkarten gegenüber 19 Druckkarten/Chronikeinträgen, alle aus-/einblenden, Abbrechen und unveränderter localStorage geprüft. Echte A4-PDF erzeugt; mobile Ansicht bei 390 Pixeln ohne Seitenüberbreite. Mobile Dialogaufnahme und emulierte Druckaufnahme visuell geprüft. Die Browserprüfung benötigte Ausführung außerhalb der Sandbox, da Chrome darin keine DevTools-Befehle beantwortete. Prüfdateien bleiben unter ignoriertem `.local/`.
+
+Grenzen: Keine Rasterprüfung der PDF, kein physischer Ausdruck, kein Screenreader, keine anderen Browser; A3 und sehr große Auswahllisten nicht erneut im Browser geprüft. Die Auswahl wird nicht dauerhaft gespeichert. Freitexte sind keine automatische Anonymisierung.
+
 ## Mehr Baumfläche auf großen Monitoren (8. November 2026)
 
 Die Baumansicht nutzt die verfügbare Breite ohne das bisherige Maximum von 1780 Pixeln; ihre maximale Scrollhöhe wächst mit hohen Fenstern. „Baum vergrößern“ blendet Navigation, Kopfbereich, Statistik und Fußzeile aus. Ab 1151 Pixeln stehen Baum und separat scrollbar bleibende Details in der verfügbaren Fensterhöhe. Auf schmalen Bildschirmen bleibt der Arbeitsbereich im normalen Seitenfluss. Die Umschaltung hält nur Sitzungszustand und schreibt keine Familiendaten.

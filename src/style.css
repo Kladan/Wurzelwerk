@@ -388,3 +388,7 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
   .report-family > h2 { background: none; padding: 4mm 0; border-left: 0; border-bottom: 1px solid #a9b99a; break-after: avoid; }
   a { text-decoration: none; }
 }
+
+.print-selection-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.print-person-options { max-height: 35vh; }
+.print-person-options label { padding: 6px 0; }

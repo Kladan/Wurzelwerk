@@ -390,3 +390,14 @@ export function demoTree() {
     createPerson({ id: 'felix', firstName: 'Felix', lastName: 'Linden', birthDate: '1995-01-30', birthPlace: 'München', parentIds: ['paul', 'clara'] }),
   ] });
 }
+
+// A temporary output projection; stored people and relationships stay untouched.
+export function treeForPrint(tree, hiddenPersonIds = []) {
+  const hidden = new Set(hiddenPersonIds);
+  const visible = new Set(tree.people.filter(person => !hidden.has(person.id)).map(person => person.id));
+  return { ...tree, people: tree.people.filter(person => visible.has(person.id)).map(person => ({
+    ...person,
+    parentIds: person.parentIds.filter(id => visible.has(id)),
+    partnerIds: person.partnerIds.filter(id => visible.has(id)),
+  })) };
+}
