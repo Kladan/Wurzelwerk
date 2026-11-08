@@ -288,8 +288,19 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
   .search-field input { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+#tree-print-output { display: none; }
+@page tree { size: A4 landscape; margin: 12mm; }
 @page { size: A4; margin: 18mm 17mm 20mm; }
 @media print {
+  body.printing-tree #app { display: none !important; }
+  #tree-print-output { display: block; }
+  .tree-print { page: tree; color: #17251d; font: 10pt/1.4 Arial, sans-serif; }
+  .tree-print-page { break-after: page; break-inside: avoid; }
+  .tree-print header p { margin: 0 0 2mm; font-size: 9pt; }
+  .tree-print h1 { font: 16pt/1.2 Georgia, serif; margin: 0 0 2mm; overflow-wrap: anywhere; }
+  .tree-print svg { display: block; width: 265mm; max-width: 100%; height: auto; overflow: hidden; font-family: Arial, sans-serif; }
+  .tree-print-legend { font-size: 9pt; margin: 2mm 0 0; }
+  .tree-print-index li { break-inside: avoid; overflow-wrap: anywhere; margin-bottom: 3mm; }
   :root, body { background: white; color: #17251d; }
   .app-shell, .main { display: block; margin: 0; padding: 0; max-width: none; }
   .sidebar, .no-print, .page-header, .stats, .workspace, .toast, dialog, .toolbar, .view-tabs { display: none !important; }

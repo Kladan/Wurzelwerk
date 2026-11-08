@@ -37,6 +37,8 @@ Familiendaten und Sicherungen sind **nicht verschlüsselt**. Wer Zugriff auf das
 
 ## Als Dokument ausgeben
 
+**Baum drucken / PDF** in der Stammbaumansicht öffnet den Browserdruck. Dort **Als PDF speichern** wählen. Der vollständige Baum wird unabhängig von Suche und Scrollposition auf A4-Querformatblätter mit festen Kartengrößen verteilt. Elternlinien und durchgängige Personennummern zeigen die Beziehungen; das anschließende Verzeichnis enthält vollständige Namen, Lebensdaten, Eltern, Partnerschaften und die zugehörigen Baumblätter. Lange Namen werden auf den Karten gekürzt. Orte, Biografien und Quellen stehen in der Chronik. Auch der Browser-Druckbefehl gibt außerhalb der Chronik den Baum aus. Nach dem Druckdialog bleibt die bisherige Ansicht erhalten.
+
 **Familienchronik** zeigt alle erfassten Personen mit ihren Beziehungen, Erinnerungen und Quellen. **Drucken / PDF** öffnet den Druckdialog des Browsers; dort einen Drucker oder **Als PDF speichern** wählen. Die Anwendung selbst schreibt keine PDF-Datei ohne diesen Dialog.
 
 **Dokument herunterladen** erzeugt zusätzlich eine eigenständige HTML-Chronik. Sie lässt sich ohne laufenden Server öffnen und drucken. Sie enthält ihre Gestaltung und benötigt keine externen Ressourcen. Es werden immer alle erfassten Personen und Notizen ausgegeben; eine automatische Ausblendung lebender Personen gibt es derzeit nicht.

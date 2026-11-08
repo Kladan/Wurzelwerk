@@ -1,6 +1,6 @@
 import { createTree, createPerson, validateTree, upsertPerson, deletePerson, displayName, getGenerations, demoTree } from './domain.js';
 import { loadTree, saveTree, downloadFile, safeFilename, STORAGE_KEY } from './storage.js';
-import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument } from './report.js';
+import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup } from './report.js';
 
 const app = document.querySelector('#app');
 const editor = document.querySelector('#editor');
@@ -77,7 +77,7 @@ function render() {
   const generations = getGenerations(tree);
   app.innerHTML = `<div class="app-shell"><aside class="sidebar no-print"><a class="brand" href="/" aria-label="Wurzelwerk Start"><img class="brand-mark" src="/favicon.svg" alt=""><span>Wurzelwerk<small>Deine Familiengeschichte</small></span></a><div class="sidebar-label">MEIN FAMILIENARCHIV</div><nav aria-label="Ansichten">${[['tree','Stammbaum'],['people','Personen'],['report','Familienchronik']].map(([key,label]) => `<button class="nav-button ${view === key ? 'active' : ''}" data-view="${key}" ${view === key ? 'aria-current="page"' : ''}><span aria-hidden="true">${icon(key)}</span>${label}</button>`).join('')}</nav>
     <div class="sidebar-bottom"><div class="privacy-badge"><span aria-hidden="true">◉</span> Nur auf diesem Rechner</div><p>Deine Geschichte gehört dir.<br>Ohne Konto. Ohne Cloud.</p>${action('backup', '↓ Sicherung speichern', 'sidebar-action')}${action('import', '↑ Sicherung öffnen', 'sidebar-action')}${action('new', 'Neuer Stammbaum', 'sidebar-action')}<small>Browserdaten sind kein Backup.<br>Sichere deine Arbeit regelmäßig.</small></div></aside>
-    <main class="main"><header class="page-header no-print"><div><p class="eyebrow">VERGANGENHEIT BEWAHREN. VERBINDUNGEN ENTDECKEN.</p><h1>${e(tree.title)}</h1><p class="page-subtitle">${view === 'report' ? 'Eine Familiengeschichte zum Aufbewahren und Weitergeben.' : 'Jeder Mensch ein Kapitel. Gemeinsam eine Geschichte.'}</p></div><div class="header-actions">${action('rename', 'Titel ändern', 'ghost')}${view === 'report' ? action('print', 'Drucken / PDF', 'primary') : action('add', '+ Person hinzufügen', 'primary')}</div></header>
+    <main class="main"><header class="page-header no-print"><div><p class="eyebrow">VERGANGENHEIT BEWAHREN. VERBINDUNGEN ENTDECKEN.</p><h1>${e(tree.title)}</h1><p class="page-subtitle">${view === 'report' ? 'Eine Familiengeschichte zum Aufbewahren und Weitergeben.' : 'Jeder Mensch ein Kapitel. Gemeinsam eine Geschichte.'}</p></div><div class="header-actions">${action('rename', 'Titel ändern', 'ghost')}${view === 'report' ? action('print', 'Drucken / PDF', 'primary') : action('print', 'Baum drucken / PDF', 'secondary') + action('add', '+ Person hinzufügen', 'primary')}</div></header>
     ${loadError ? `<div class="notice error no-print" role="alert">${e(loadError)} ${action('raw', 'Rohdaten sichern', 'secondary small')}</div>` : ''}
     <section class="stats no-print" aria-label="Stammbaum in Zahlen"><div class="stat"><span class="stat-value">${tree.people.length}</span><span>Menschen im Stammbaum</span></div><div class="stat"><span class="stat-value">${generations.length}</span><span>erfasste Generationen</span></div><div class="stat"><span class="stat-value">${new Set(tree.people.map(p => p.birthPlace).filter(Boolean)).size}</span><span>Geburtsorte</span></div><div class="stat privacy-stat"><span class="stat-value">Lokal.</span><span>Deine Daten bleiben bei dir</span></div></section>
     ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
@@ -198,7 +198,16 @@ function requestCloseEditor() {
 editor.addEventListener('input', () => { editor.dataset.dirty = 'true'; });
 editor.addEventListener('cancel', event => { event.preventDefault(); requestCloseEditor(); });
 window.addEventListener('beforeunload', event => { if (editor.open && editor.dataset.dirty) { event.preventDefault(); event.returnValue = ''; } });
-let previousView;
-window.addEventListener('beforeprint', () => { previousView = view; view = 'report'; render(); });
-window.addEventListener('afterprint', () => { view = previousView || view; render(); });
+window.addEventListener('beforeprint', () => {
+  if (view === 'report' || document.querySelector('#tree-print-output')) return;
+  const output = document.createElement('div');
+  output.id = 'tree-print-output';
+  output.innerHTML = treePrintMarkup(tree);
+  document.body.append(output);
+  document.body.classList.add('printing-tree');
+});
+window.addEventListener('afterprint', () => {
+  document.querySelector('#tree-print-output')?.remove();
+  document.body.classList.remove('printing-tree');
+});
 render();
