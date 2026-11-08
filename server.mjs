@@ -8,7 +8,7 @@ const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/index.html', ['index.html', 'text/html; charset=utf-8']],
   ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
-  ...['app.js', 'domain.js', 'storage.js', 'report.js'].map(name => [
+  ...['app.js', 'domain.js', 'storage.js', 'report.js', 'tree-layout.js'].map(name => [
     `/src/${name}`, [`src/${name}`, 'text/javascript; charset=utf-8'],
   ]),
   ['/src/style.css', ['src/style.css', 'text/css; charset=utf-8']],

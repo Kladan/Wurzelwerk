@@ -1,6 +1,8 @@
-import { createTree, createPerson, validateTree, upsertPerson, deletePerson, displayName, getGenerations, demoTree } from './domain.js';
+import { createTree, createPerson, validateTree, upsertPerson, deletePerson, displayName, getGenerations, getTreeGenerations, demoTree } from './domain.js';
 import { loadTree, saveTree, downloadFile, safeFilename, STORAGE_KEY } from './storage.js';
 import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup } from './report.js';
+
+import { familyConnections, connectionMarkup } from './tree-layout.js';
 
 const app = document.querySelector('#app');
 const editor = document.querySelector('#editor');
@@ -67,8 +69,8 @@ function emptyState() {
 function workspace() {
   if (!tree.people.length) return emptyState();
   const filtered = tree.people.filter(p => [displayName(p), p.birthName, p.birthPlace].join(' ').toLocaleLowerCase('de').includes(query.toLocaleLowerCase('de')));
-  const content = view === 'people' || query ? `<div class="person-list">${filtered.length ? filtered.sort((a,b) => displayName(a).localeCompare(displayName(b), 'de')).map(p => `<button class="list-person ${selectedId === p.id ? 'selected' : ''}" data-person="${e(p.id)}"><span class="avatar">${initials(p)}</span><span><strong>${e(displayName(p))}</strong><small>${e(lifespan(p))} · ${e(p.birthPlace || 'Ort offen')}</small></span><span aria-hidden="true">→</span></button>`).join('') : '<div class="empty-state"><h3>Keine Person gefunden</h3><p>Versuche einen anderen Namen oder Geburtsort.</p></div>'}</div>` : `<div class="tree-scroll"><div class="tree-canvas"><svg class="tree-lines" aria-hidden="true"></svg>${getGenerations(tree).map((generation, index) => `<section class="generation-group"><p class="generation-label">GENERATION ${String(index + 1).padStart(2, '0')}</p><div class="generation">${generation.map(personCard).join('')}</div></section>`).join('')}</div></div>`;
-  return `<div class="workspace"><section class="tree-panel"><div class="panel-header"><h2>${view === 'people' || query ? 'Personenverzeichnis' : 'Deine Familie im Überblick'}</h2><span class="muted">${view === 'people' || query ? `${filtered.length} Einträge` : 'Ältere Generationen oben'}</span></div>${content}<p class="tree-hint">${view === 'tree' && !query ? 'Linien zeigen Eltern und Kinder. Die Generation folgt den erfassten Eltern; Partner können in verschiedenen Zeilen stehen.' : 'Wähle eine Person, um ihre Geschichte und Verbindungen zu sehen.'}</p></section>${detailPanel()}</div>`;
+  const content = view === 'people' || query ? `<div class="person-list">${filtered.length ? filtered.sort((a,b) => displayName(a).localeCompare(displayName(b), 'de')).map(p => `<button class="list-person ${selectedId === p.id ? 'selected' : ''}" data-person="${e(p.id)}"><span class="avatar">${initials(p)}</span><span><strong>${e(displayName(p))}</strong><small>${e(lifespan(p))} · ${e(p.birthPlace || 'Ort offen')}</small></span><span aria-hidden="true">→</span></button>`).join('') : '<div class="empty-state"><h3>Keine Person gefunden</h3><p>Versuche einen anderen Namen oder Geburtsort.</p></div>'}</div>` : `<div class="tree-scroll"><div class="tree-canvas"><svg class="tree-lines" aria-hidden="true"></svg>${getTreeGenerations(tree).map((generation, index) => `<section class="generation-group" data-generation="${index}"><p class="generation-label">GENERATION ${String(index + 1).padStart(2, '0')}</p><div class="generation">${generation.map(personCard).join('')}</div></section>`).join('')}</div></div>`;
+  return `<div class="workspace"><section class="tree-panel"><div class="panel-header"><h2>${view === 'people' || query ? 'Personenverzeichnis' : 'Deine Familie im Überblick'}</h2><span class="muted">${view === 'people' || query ? `${filtered.length} Einträge` : 'Ältere Generationen oben'}</span></div>${content}<p class="tree-hint">${view === 'tree' && !query ? 'Gemeinsame Linien bündeln Eltern und Geschwister; Punkte markieren Verzweigungen. Wähle eine Person, um ihre Familienlinien hervorzuheben. Eltern über mehrere Generationen stehen als Verweis auf der Karte. Die Generation folgt den erfassten Eltern.' : 'Wähle eine Person, um ihre Geschichte und Verbindungen zu sehen.'}</p></section>${detailPanel()}</div>`;
 }
 
 function render() {
@@ -96,19 +98,12 @@ function drawConnections() {
   const origin = canvas.getBoundingClientRect();
   svg.setAttribute('width', String(canvas.scrollWidth));
   svg.setAttribute('height', String(canvas.scrollHeight));
-  const cards = new Map([...canvas.querySelectorAll('[data-node]')].map(node => [node.dataset.node, node.getBoundingClientRect()]));
-  const paths = [];
-  for (const child of tree.people) for (const parentId of child.parentIds) {
-    const parent = cards.get(parentId);
-    const card = cards.get(child.id);
-    if (!parent || !card) continue;
-    const x1 = parent.x + parent.width / 2 - origin.x;
-    const y1 = parent.bottom - origin.y;
-    const x2 = card.x + card.width / 2 - origin.x;
-    const y2 = card.top - origin.y;
-    paths.push(`<path d="M${x1},${y1} C${x1},${(y1+y2)/2} ${x2},${(y1+y2)/2} ${x2},${y2}"/>`);
-  }
-  svg.innerHTML = paths.join('');
+  const cards = new Map([...canvas.querySelectorAll('[data-node]')].map(node => {
+    const bounds = node.getBoundingClientRect();
+    return [node.dataset.node, { x: bounds.x - origin.x, y: bounds.y - origin.y,
+      width: bounds.width, height: bounds.height, row: Number(node.closest('[data-generation]').dataset.generation) }];
+  }));
+  svg.innerHTML = connectionMarkup(familyConnections(tree, cards), selectedId);
 }
 
 function showDialog(markup, onSubmit) {

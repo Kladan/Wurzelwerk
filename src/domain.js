@@ -137,6 +137,63 @@ export function getGenerations(tree) {
   return groups.map(group => group.sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'de')));
 }
 
+/** Order the tree by families without changing ancestry levels or stored data. */
+export function getTreeGenerations(tree) {
+  const generations = getGenerations(tree);
+  const compareNames = (a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'de') || a.id.localeCompare(b.id);
+  const compareSiblings = (a, b) => {
+    if (a.birthDate && b.birthDate && a.birthDate !== b.birthDate) return a.birthDate.localeCompare(b.birthDate);
+    if (Boolean(a.birthDate) !== Boolean(b.birthDate)) return a.birthDate ? -1 : 1;
+    return compareNames(a, b);
+  };
+  // Co-parents belong together even when no partnership was recorded.
+  const relatives = new Map(tree.people.map(person => [person.id, new Set(person.partnerIds)]));
+  for (const child of tree.people) if (child.parentIds.length === 2) {
+    const [a, b] = child.parentIds;
+    relatives.get(a).add(b);
+    relatives.get(b).add(a);
+  }
+  const positions = new Map();
+  return generations.map(generation => {
+    // Keep siblings with the same recorded parents as one indivisible block.
+    const byParents = new Map();
+    for (const person of generation) {
+      const key = person.parentIds.length ? JSON.stringify([...person.parentIds].sort()) : `person:${person.id}`;
+      if (!byParents.has(key)) byParents.set(key, []);
+      byParents.get(key).push(person);
+    }
+    const blocks = [...byParents.values()].map(people => {
+      people.sort(compareSiblings);
+      const parentPositions = people[0].parentIds.map(id => positions.get(id));
+      return { people, anchor: parentPositions.length ? parentPositions.reduce((sum, x) => sum + x, 0) / parentPositions.length : Infinity };
+    });
+    const blockOf = new Map(blocks.flatMap(block => block.people.map(person => [person.id, block])));
+    const neighbors = new Map(blocks.map(block => [block, new Set()]));
+    for (const person of generation) for (const id of relatives.get(person.id)) {
+      const other = blockOf.get(id);
+      if (other && other !== blockOf.get(person.id)) neighbors.get(blockOf.get(person.id)).add(other);
+    }
+    const compareBlocks = (a, b) => (a.anchor === b.anchor ? 0 : a.anchor - b.anchor) || compareNames(a.people[0], b.people[0]);
+    const visited = new Set();
+    const families = [];
+    for (const block of blocks) {
+      if (visited.has(block)) continue;
+      const family = [block];
+      visited.add(block);
+      for (let i = 0; i < family.length; i++) for (const other of neighbors.get(family[i])) {
+        if (!visited.has(other)) { visited.add(other); family.push(other); }
+      }
+      family.sort(compareBlocks);
+      const anchors = family.map(member => member.anchor).filter(Number.isFinite);
+      families.push({ blocks: family, anchor: anchors.length ? anchors.reduce((sum, x) => sum + x, 0) / anchors.length : Infinity });
+    }
+    families.sort((a, b) => (a.anchor === b.anchor ? 0 : a.anchor - b.anchor) || compareNames(a.blocks[0].people[0], b.blocks[0].people[0]));
+    const ordered = families.flatMap(family => family.blocks.flatMap(block => block.people));
+    ordered.forEach((person, index) => positions.set(person.id, (index + 0.5) / ordered.length));
+    return ordered;
+  });
+}
+
 export function demoTree() {
   return validateTree({ version: 1, title: 'Familie Linden', people: [
     createPerson({ id: 'otto', firstName: 'Otto', lastName: 'Linden', birthDate: '1932-04-18', birthPlace: 'Freiburg', deathDate: '2015', partnerIds: ['martha'], notes: 'Fiktives Beispiel: liebte seinen Garten und lange Spaziergänge.' }),

@@ -6,7 +6,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const output = join(root, 'dist');
 const files = [
   'index.html', 'favicon.svg',
-  'src/app.js', 'src/domain.js', 'src/storage.js', 'src/report.js', 'src/style.css',
+  'src/app.js', 'src/domain.js', 'src/storage.js', 'src/report.js', 'src/tree-layout.js', 'src/style.css',
 ];
 
 await mkdir(join(output, 'src'), { recursive: true });

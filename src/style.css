@@ -167,7 +167,12 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
 
 /* These connections represent the captured parent links, not decorative grouping. */
 .tree-lines { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: visible; }
-.tree-lines path { fill: none; stroke: #a9b99a; stroke-width: 1.6; }
+.family-connection path { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.connection-halo path { stroke: #f9faf5; stroke-width: 6; }
+.connection-ink path { stroke: #63785a; stroke-width: 1.8; }
+.connection-ink circle { fill: #63785a; }
+.related .connection-ink path { stroke: #294e32; stroke-width: 2.8; }
+.related .connection-ink circle { fill: #294e32; }
 .generation-group { position: relative; padding-bottom: 60px; }
 .generation-group:last-child { padding-bottom: 0; }
 .generation { min-width: 100%; width: max-content; margin: 0 auto; }

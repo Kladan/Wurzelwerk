@@ -11,6 +11,7 @@ async function fixture(t) {
   await mkdir(join(root, 'src'));
   await writeFile(join(root, 'index.html'), '<h1>FamilyTree</h1>');
   await writeFile(join(root, 'src', 'app.js'), 'export const local = true;');
+  await writeFile(join(root, 'src', 'tree-layout.js'), 'export const sharedLayout = true;');
   await writeFile(join(root, 'package.json'), '{"secret":"not public"}');
   const server = createServer({ root });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -48,6 +49,9 @@ test('serves local assets with browser security headers and correct MIME types',
   const script = await get({ path: '/src/app.js?v=1' });
   assert.equal(script.status, 200);
   assert.match(script.headers['content-type'], /javascript/);
+  const layout = await get({ path: '/src/tree-layout.js' });
+  assert.equal(layout.status, 200);
+  assert.match(layout.headers['content-type'], /javascript/);
   const head = await get({ method: 'HEAD' });
   assert.equal(head.status, 200);
   assert.equal(head.body, '');
