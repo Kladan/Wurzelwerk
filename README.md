@@ -21,7 +21,7 @@ Der Server lauscht ausschließlich auf `127.0.0.1`. Er liefert Programmdateien a
 3. Geburtsname, Orte, Erinnerungen und Quellen nach Bedarf ergänzen. Daten dürfen als Jahr (`1948`), Jahr und Monat (`1948-03`) oder vollständiges Datum (`1948-03-21`) erfasst werden.
 4. Im Stammbaum eine Person auswählen oder im Personenverzeichnis nach Namen und Geburtsorten suchen.
 
-Die Generation ergibt sich aus den erfassten Elternbeziehungen. Fehlende Vorfahren können dazu führen, dass Partner in verschiedenen Zeilen stehen. Elternbeziehungen dürfen keinen Kreis erzeugen. **Beispiel erkunden** lädt ausschließlich erfundene Daten.
+Die Generation ergibt sich aus den erfassten Elternbeziehungen. Fehlende Vorfahren können dazu führen, dass Partner in verschiedenen Zeilen stehen. Innerhalb einer Generation werden Co-Eltern und Partnerschaften zusammen angeordnet; Geschwister bleiben als Familienblock beieinander und folgen der Reihenfolge ihrer Eltern. Bekannte Geburtsdaten bestimmen die Geschwisterreihenfolge. Gemeinsame Elternanschlüsse und Geschwisterleisten ersetzen einzelne überlagerte Kurven. Verzweigungspunkte markieren echte Verbindungen; beim Auswählen einer Person werden ihre Familienlinien hervorgehoben. Eltern über mehrere Generationszeilen werden auf der Karte genannt, ohne Linien durch fremde Personen zu ziehen. Elternbeziehungen dürfen keinen Kreis erzeugen. **Beispiel erkunden** lädt ausschließlich erfundene Daten.
 
 ## Speichern und sichern
 
@@ -37,7 +37,9 @@ Familiendaten und Sicherungen sind **nicht verschlüsselt**. Wer Zugriff auf das
 
 ## Als Dokument ausgeben
 
-**Baum drucken / PDF** in der Stammbaumansicht öffnet den Browserdruck. Dort **Als PDF speichern** wählen. Der vollständige Baum wird unabhängig von Suche und Scrollposition auf A4-Querformatblätter mit festen Kartengrößen verteilt. Elternlinien und durchgängige Personennummern zeigen die Beziehungen; das anschließende Verzeichnis enthält vollständige Namen, Lebensdaten, Eltern, Partnerschaften und die zugehörigen Baumblätter. Lange Namen werden auf den Karten gekürzt. Orte, Biografien und Quellen stehen in der Chronik. Auch der Browser-Druckbefehl gibt außerhalb der Chronik den Baum aus. Nach dem Druckdialog bleibt die bisherige Ansicht erhalten.
+**Baum drucken / PDF** in der Stammbaumansicht öffnet den Browserdruck. Dort **Als PDF speichern** wählen. Der vollständige Baum wird unabhängig von Suche und Scrollposition kompakt auf A4-Querformatblätter verteilt: **acht Personen je Generation und vier Generationen je Blatt, also 32 Kartenplätze**. Namen werden mit ungefähr 8,4 Punkt gedruckt. Mehr als acht Personen in einer Generation oder mehr als vier Generationen werden auf weitere Baumblätter verteilt; Karten werden nicht geteilt. Die Familienreihenfolge und gebündelten Linien entsprechen der Bildschirmansicht. Durchgängige Personennummern ordnen auch Beziehungen über Blatt- und Generationsgrenzen zu.
+
+Standardmäßig wird nur der Baum gedruckt. **Verzeichnis im PDF** fügt auf Wunsch einen Anhang mit vollständigen Namen, Lebensdaten, Eltern, Partnerschaften und den zugehörigen Baumblättern hinzu. Lange Namen werden auf den Karten mit „…“ gekürzt; für vollständige Namen das Verzeichnis aktivieren. Orte, Biografien und Quellen stehen in der Chronik. Auch der Browser-Druckbefehl gibt außerhalb der Chronik den Baum aus. Nach dem Druckdialog bleiben Ansicht, Scrollposition und Tastaturfokus erhalten.
 
 **Familienchronik** zeigt alle erfassten Personen mit ihren Beziehungen, Erinnerungen und Quellen. **Drucken / PDF** öffnet den Druckdialog des Browsers; dort einen Drucker oder **Als PDF speichern** wählen. Die Anwendung selbst schreibt keine PDF-Datei ohne diesen Dialog.
 

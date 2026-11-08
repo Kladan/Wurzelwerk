@@ -26,6 +26,13 @@ test('siblings share a family bus while a second parent pair keeps a separate co
   assert.equal((markup.match(/class="family-connection related"/g) ?? []).length, 1);
   assert.ok(markup.includes('connection-halo'));
   assert.equal(markup.includes(' C'), false);
+  const tile = connectionMarkup(families, null, { x: 200, y: 0, width: 400, height: 400 });
+  assert.equal(tile.includes('M90 '), false); // Off-sheet parent/child stems are absent.
+  assert.ok(tile.includes('L290 240')); // The visible sibling still has its connection.
+  for (const match of tile.matchAll(/d="M([\d.]+) ([\d.]+) L([\d.]+) ([\d.]+)"/g)) {
+    assert.ok(Number(match[1]) >= 200 && Number(match[1]) <= 600);
+    assert.ok(Number(match[3]) >= 200 && Number(match[3]) <= 600);
+  }
   assert.deepEqual(tree, before);
 });
 

@@ -1,4 +1,5 @@
-import { displayName, getGenerations } from './domain.js';
+import { displayName, getGenerations, getTreeGenerations } from './domain.js';
+import { familyConnections, connectionMarkup } from './tree-layout.js';
 
 export const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export function formatDate(value) {
@@ -42,45 +43,53 @@ export function reportDocument(tree) {
   return `<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(tree.title)}</title><style>body{font:11pt/1.6 Georgia,serif;color:#233d32;max-width:180mm;margin:20mm auto;padding:0 12mm}h1{font-size:34pt}h2{border-bottom:1px solid #bac8bd;padding-bottom:8px}h3{font-size:17pt}h4,p{margin:6px 0}.report-cover{padding:30mm 0;break-after:page}.report-index{break-after:page}a{color:inherit}.report-person{break-inside:avoid;margin-bottom:25px}.preserve-lines{white-space:pre-wrap;overflow-wrap:anywhere}footer{margin-top:20mm;font-size:9pt}.report-reference{font-size:9pt}@page{size:A4;margin:18mm}@media print{body{margin:0;padding:0}h2{break-after:avoid}}</style>${reportMarkup(tree)}</html>`;
 }
 
-// Fixed-size tiles keep cards legible, independently of viewport and tree size.
-export function treePrintMarkup(tree) {
-  const generations = getGenerations(tree);
-  const people = generations.flat();
+// Eight compact cards by four generations fit an A4 landscape tree sheet.
+// Page boundaries always fall between cards; the index is an optional appendix.
+export function treePrintMarkup(tree, { includeIndex = false } = {}) {
+  const generations = getTreeGenerations(tree);
   const nodes = new Map();
   const pages = [];
-  for (let row = 0; row < generations.length; row += 2) {
-    const columns = Math.ceil(Math.max(...generations.slice(row, row + 2).map(g => g.length)) / 3);
-    for (let col = 0; col < columns; col++) pages.push({ row, col });
+  const pageByTile = new Map();
+  for (let row = 0; row < generations.length; row += 4) {
+    const widest = Math.max(...generations.slice(row, row + 4).map(g => g.length));
+    for (let col = 0; col < Math.ceil(widest / 8); col++) {
+      const page = { row, col, cards: [], number: pages.length + 1 };
+      pages.push(page);
+      pageByTile.set(`${row}:${col}`, page);
+    }
+    generations.slice(row, row + 4).forEach((generation, offset) => {
+      const start = Math.floor((Math.max(8, widest) - generation.length) / 2);
+      generation.forEach((person, index) => {
+        const column = start + index;
+        const page = pageByTile.get(`${row}:${Math.floor(column / 8)}`);
+        const node = { person, number: nodes.size + 1, row: row + offset,
+          x: column * 200 + 7, y: (row + offset) * 220 + 28,
+          width: 186, height: 118, page: page.number };
+        nodes.set(person.id, node); page.cards.push(node);
+      });
+    });
   }
-  generations.forEach((generation, row) => generation.forEach((person, col) => {
-    nodes.set(person.id, { person, number: nodes.size + 1, x: col * 300 + 10, y: row * 230 + 40,
-      page: pages.findIndex(page => page.row === row - row % 2 && page.col === Math.floor(col / 3)) + 1 });
-  }));
-  const refs = ids => ids.map(id => `[${nodes.get(id).number}]`).join(', ') || 'nicht erfasst';
-  const edges = people.flatMap(child => child.parentIds.map(id => {
-    const parent = nodes.get(id), node = nodes.get(child.id);
-    const x1 = parent.x + 135, y1 = parent.y + 140, x2 = node.x + 135, y2 = node.y;
-    return { parentPage: parent.page, childPage: node.page, markup: `<path d="M${x1} ${y1} C${x1} ${(y1 + y2) / 2} ${x2} ${(y1 + y2) / 2} ${x2} ${y2}"/>` };
-  }));
+  const refs = ids => ids.map(id => `[${nodes.get(id).number}]`).join(', ') || 'offen';
+  const connections = familyConnections(tree, nodes);
   const header = label => `<header><p>WURZELWERK · STAMMBAUM</p><h1>${escapeHtml(tree.title)}</h1><p>${label}</p></header>`;
-  return `<article class="tree-print" aria-label="Stammbaum zum Drucken">${pages.map(({ row, col }, index) => {
-    const cards = [...nodes.values()].filter(node => node.page === index + 1);
-    return `<section class="tree-print-page">${header(`Baumblatt ${index + 1} von ${pages.length} · Zeile ${row / 2 + 1}, Spalte ${col + 1}`)}
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${col * 900} ${row * 230} 900 460" role="img" aria-label="Personen und Elternlinien auf Baumblatt ${index + 1}">
-      <g fill="none" stroke="#53674c" stroke-width="2">${edges.filter(edge => edge.parentPage === index + 1 || edge.childPage === index + 1).map(edge => edge.markup).join('')}</g>
-      ${[row, row + 1].filter(r => generations[r]?.some((_, c) => Math.floor(c / 3) === col)).map(r => `<text x="${col * 900 + 10}" y="${r * 230 + 25}" font-size="14">Generation ${r + 1}</text>`).join('')}
-      ${cards.map(({ person, number, x, y }) => {
+  const appendix = includeIndex || !nodes.size ? `<section class="tree-print-index">${header('Personenverzeichnis · Nummern und Baumblätter')}
+    ${nodes.size ? `<ol>${[...nodes.values()].map(({ person, number, page }) => `<li value="${number}"><strong>${escapeHtml(displayName(person))}</strong> · ${escapeHtml(lifespan(person))} · Baumblatt ${page}<br>Eltern: ${refs(person.parentIds)} · Partnerschaften: ${refs(person.partnerIds)}</li>`).join('')}</ol>` : '<p>Noch keine Personen erfasst.</p>'}
+    <p>Fehlende Angaben bleiben offen. Die Generation folgt den erfassten Eltern.</p></section>` : '';
+  return `<article class="tree-print" aria-label="Stammbaum zum Drucken">${pages.map(({ row, col, cards, number }) => {
+    const visible = connections.filter(group => group.routeIds.some(id => nodes.get(id)?.page === number));
+    return `<section class="tree-print-page">${header(`Baumblatt ${number} von ${pages.length} · Generation ${row + 1}–${Math.min(row + 4, generations.length)} · Spalte ${col + 1}`)}
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="${col * 1600} ${row * 220} 1600 880" role="img" aria-label="Personen und Familienlinien auf Baumblatt ${number}">
+      ${connectionMarkup(visible, null, { x: col * 1600, y: row * 220, width: 1600, height: 880 })}
+      ${[row, row + 1, row + 2, row + 3].filter(r => cards.some(node => node.row === r)).map(r => `<text x="${col * 1600 + 7}" y="${r * 220 + 17}" font-size="12">Generation ${r + 1}</text>`).join('')}
+      ${cards.map(({ person, number: reference, x, y }) => {
         const name = Array.from(displayName(person));
-        const lines = [name.slice(0, 27).join(''), name.slice(27, 54).join('') + (name.length > 54 ? '…' : '')];
-        return `<g><title>[${number}] ${escapeHtml(displayName(person))}</title><rect x="${x}" y="${y}" width="270" height="140" rx="6" fill="white" stroke="#53674c"/>
-          <text x="${x + 12}" y="${y + 23}" font-size="14">[${number}]</text>
-          ${lines.map((line, i) => `<text x="${x + 12}" y="${y + 49 + i * 22}" font-size="17"${line ? ` textLength="${Math.min(240, Array.from(line).length * 9)}" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeHtml(line)}</text>`).join('')}
-          <text x="${x + 12}" y="${y + 99}" font-size="15">${escapeHtml(lifespan(person))}</text>
-          <text x="${x + 12}" y="${y + 124}" font-size="14">Eltern: ${refs(person.parentIds)}</text></g>`;
+        const lines = [name.slice(0, 21).join(''), name.slice(21, 42).join('') + (name.length > 42 ? '…' : '')];
+        return `<g><title>[${reference}] ${escapeHtml(displayName(person))}</title><rect x="${x}" y="${y}" width="186" height="118" rx="4" fill="white" stroke="#53674c"/>
+          <text x="${x + 8}" y="${y + 16}" font-size="14">[${reference}]</text>
+          ${lines.map((line, i) => `<text x="${x + 8}" y="${y + 39 + i * 21}" font-size="18"${line ? ` textLength="${Math.min(170, Array.from(line).length * 9)}" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeHtml(line)}</text>`).join('')}
+          <text x="${x + 8}" y="${y + 85}" font-size="15">${escapeHtml(lifespan(person))}</text>
+          <text x="${x + 8}" y="${y + 107}" font-size="14">Eltern: ${refs(person.parentIds)}</text></g>`;
       }).join('')}</svg>
-      <p class="tree-print-legend">Linien verbinden Eltern und Kinder. Blattübergreifende Verbindungen über die Elternnummern zuordnen. [Nummern] gelten auf allen Blättern; vollständige Namen und Partnerschaften stehen im Verzeichnis.</p></section>`;
-  }).join('')}
-    <section class="tree-print-index">${header('Personenverzeichnis · Nummern und Baumblätter')}
-    ${people.length ? `<ol>${[...nodes.values()].map(({ person, number, page }) => `<li value="${number}"><strong>${escapeHtml(displayName(person))}</strong> · ${escapeHtml(lifespan(person))} · Baumblatt ${page}<br>Eltern: ${refs(person.parentIds)} · Partnerschaften: ${refs(person.partnerIds)}</li>`).join('')}</ol>` : '<p>Noch keine Personen erfasst.</p>'}
-    <p>Fehlende Angaben bleiben offen. Die Generation folgt den erfassten Eltern.</p></section></article>`;
+      <p class="tree-print-legend">Gemeinsame Linien bündeln Eltern und Geschwister; Punkte markieren Verzweigungen. Eltern über Blatt- oder Generationsgrenzen: [Nummern] auf den Karten. Namen mit … sind gekürzt.${includeIndex ? ' Vollständige Namen und Partnerschaften im Verzeichnis.' : ''}</p></section>`;
+  }).join('')}${appendix}</article>`;
 }

@@ -14,6 +14,7 @@ let selectedId = tree.people[0]?.id;
 let query = '';
 let undoTree = null;
 let toastTimer;
+let includeTreeIndex = false;
 const personById = id => tree.people.find(p => p.id === id);
 const icon = name => ({ tree: '♧', people: '☷', report: '▤', plus: '+', backup: '↓', import: '↑' })[name];
 const action = (name, label, classes = 'secondary', extra = '') => `<button type="button" class="button ${classes}" data-action="${name}" ${extra}>${label}</button>`;
@@ -82,7 +83,7 @@ function render() {
     <main class="main"><header class="page-header no-print"><div><p class="eyebrow">VERGANGENHEIT BEWAHREN. VERBINDUNGEN ENTDECKEN.</p><h1>${e(tree.title)}</h1><p class="page-subtitle">${view === 'report' ? 'Eine Familiengeschichte zum Aufbewahren und Weitergeben.' : 'Jeder Mensch ein Kapitel. Gemeinsam eine Geschichte.'}</p></div><div class="header-actions">${action('rename', 'Titel ändern', 'ghost')}${view === 'report' ? action('print', 'Drucken / PDF', 'primary') : action('print', 'Baum drucken / PDF', 'secondary') + action('add', '+ Person hinzufügen', 'primary')}</div></header>
     ${loadError ? `<div class="notice error no-print" role="alert">${e(loadError)} ${action('raw', 'Rohdaten sichern', 'secondary small')}</div>` : ''}
     <section class="stats no-print" aria-label="Stammbaum in Zahlen"><div class="stat"><span class="stat-value">${tree.people.length}</span><span>Menschen im Stammbaum</span></div><div class="stat"><span class="stat-value">${generations.length}</span><span>erfasste Generationen</span></div><div class="stat"><span class="stat-value">${new Set(tree.people.map(p => p.birthPlace).filter(Boolean)).size}</span><span>Geburtsorte</span></div><div class="stat privacy-stat"><span class="stat-value">Lokal.</span><span>Deine Daten bleiben bei dir</span></div></section>
-    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
+    ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält alle Personen, Beziehungen, Erinnerungen und Quellen.</p>${action('html', 'Dokument herunterladen', 'secondary')}</div>${tree.people.length ? reportMarkup(tree) : emptyState()}` : `<div class="toolbar no-print"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div><label class="print-index-option"><input type="checkbox" id="print-tree-index" ${includeTreeIndex ? 'checked' : ''}> Verzeichnis im PDF</label><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label></div>${workspace()}`}
     <footer class="app-footer no-print"><span>WURZELWERK</span><span>${loadError ? 'Speicherung prüfen' : 'Änderungen werden in diesem Browser lokal gespeichert.'}</span>${undoTree ? action('undo', 'Letzte Löschung rückgängig', 'ghost small') : ''}</footer></main></div>`;
   if (view === 'tree' && !query) requestAnimationFrame(() => {
     const scroll = document.querySelector('.tree-scroll');
@@ -177,6 +178,10 @@ app.addEventListener('click', event => {
   } catch (error) { notify(error.message); }
 });
 
+app.addEventListener('change', event => {
+  if (event.target.id === 'print-tree-index') includeTreeIndex = event.target.checked;
+});
+
 app.addEventListener('input', event => {
   if (event.target.id !== 'search') return;
   const position = event.target.selectionStart;
@@ -193,16 +198,27 @@ function requestCloseEditor() {
 editor.addEventListener('input', () => { editor.dataset.dirty = 'true'; });
 editor.addEventListener('cancel', event => { event.preventDefault(); requestCloseEditor(); });
 window.addEventListener('beforeunload', event => { if (editor.open && editor.dataset.dirty) { event.preventDefault(); event.returnValue = ''; } });
+let printFocus = null;
+function restorePrintFocus() {
+  if (window.matchMedia('print').matches) return;
+  if (printFocus?.isConnected) printFocus.focus({ preventScroll: true });
+  printFocus = null;
+}
 window.addEventListener('beforeprint', () => {
   if (view === 'report' || document.querySelector('#tree-print-output')) return;
+  printFocus = document.activeElement;
   const output = document.createElement('div');
   output.id = 'tree-print-output';
-  output.innerHTML = treePrintMarkup(tree);
+  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex });
   document.body.append(output);
   document.body.classList.add('printing-tree');
 });
 window.addEventListener('afterprint', () => {
   document.querySelector('#tree-print-output')?.remove();
   document.body.classList.remove('printing-tree');
+  restorePrintFocus();
+});
+window.matchMedia('print').addEventListener('change', event => {
+  if (!event.matches) restorePrintFocus();
 });
 render();
