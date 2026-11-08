@@ -1,5 +1,15 @@
 # Umsetzungs- und Prüfnotiz
 
+## Partnerschaften ohne bekannte Eltern und direkte Verwandtenanlage (8. November 2026)
+
+Ein Engineering-Agent ergänzte Generationen für elternlose Partner, die vollständig validierte Anlage von Eltern, Partnern und Kindern sowie unverbindliche Vorschläge für den zweiten Elternteil. Die technische Leitung integrierte direkte Aktionen in den Personendetails, feste Bezugspersonen im Formular und eine Elternsuche, die ausgewählte Einträge erhält. Es werden keine Vorfahren oder Datumsangaben erfunden. Die Generationsregel gilt für Bildschirm, Chronik und Baumdruck.
+
+Ein unabhängiger Review-Agent führte `npm.cmd run check` aus und prüfte zusätzlich 1.200 reproduzierbare gemischte Eltern-/Partnergraphen auf Vollständigkeit, stabile Reihenfolge, Elternvorrang und unveränderte Eingaben. Speicherfehler wurden für alle drei Arten der Verwandtenanlage geprüft. Sein Befund, dass die Bezugsperson abwählbar war und beim Speichern erneut hinzugefügt wurde, wurde durch feste Kontextcheckboxen behoben und erneut geprüft; keine weiteren blockierenden Befunde.
+
+Die technische Leitung prüfte mit ausschließlich fiktiven Daten in einem eigenen Chrome-Headless-Profil: neue Partnerperson ohne Eltern in Generation 3, HTML-Maskierung, feste Kontextverbindungen, Partnervorschlag beim Kindanlegen, Auswahl des zweiten Elternteils, Erhalt ausgewählter Eltern trotz Suchfilter, Tab-Navigation und Fokus nach Auswahl, beide direkten Elternanlagen und ausgeblendete Elternaktion bei zwei Eltern. Ein erzwungener Speicherfehler erhielt Bestand und Formulareingaben; erneutes Speichern stellte die Verbindung vollständig her. Bei 390 Pixeln gab es keine Seitenüberbreite; Formular und Vorschlagsbereich wurden visuell geprüft. Ein A4-Baum-PDF wurde erzeugt, die vollständige Kartenanzahl in der Druckausgabe geprüft. Keine JavaScript-Laufzeitfehler. Die DevTools-CLI scheiterte an `uv_os_get_passwd`; die Browserprüfung erfolgte direkt über das lokale DevTools-Protokoll. Prüfdateien verbleiben unter dem ignorierten `.local/`.
+
+Prüfgrenzen: Keine vollständige Barrierefreiheitsprüfung, keine anderen Browser oder physische Drucker. Die PDF wurde nicht seitenweise gerastert und visuell geprüft. Bei widersprüchlichen Partnerhinweisen verwendet die Darstellung für betroffene und nachgelagerte Gruppen nur Elternbeziehungen; bei unterschiedlich tief erfassten Eltern bleiben Partner gegebenenfalls getrennt. Die Generationszuordnung ist eine Darstellungshilfe, kein Nachweis unbekannter Abstammung. Lasttests der neuen interaktiven Vorschläge mit 5.000 Personen stehen aus.
+
 Stand: 7. November 2026. Ausschließlich fiktive Beispieldaten.
 
 ## Architektur und lokale Datenverarbeitung
