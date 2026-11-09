@@ -29,7 +29,7 @@ Die Generation ergibt sich vorrangig aus den erfassten Elternbeziehungen. Ohne e
 
 Bei einer Auswahl aus genau zwei benachbarten dargestellten Generationen sind die Rollen bereits vorgeschlagen: oben Eltern, darunter Kinder. Der Vorschlag berücksichtigt bestehende Eltern und muss als gesamte Änderung gültig sein. Rollen bleiben änderbar; erst **Verknüpfungen speichern** übernimmt die Beziehungen. Bei derselben Generation, übersprungenen Generationen oder ungültigen Vorschlägen bleiben die Felder offen. Die dargestellte Generation allein belegt keine Verwandtschaft.
 
-Auf großen Bildschirmen nutzt der Stammbaum die verfügbare Breite. **Baum vergrößern** blendet Navigation, Kopfbereich und Übersichtszahlen aus und nutzt auf Desktopbildschirmen die Fensterhöhe für den Arbeitsbereich. Suche und Personendetails bleiben erreichbar. **Ansicht verkleinern** oder **Escape** stellt die normale Ansicht wieder her; in einem geöffneten Dialog schließt Escape zuerst den Dialog. Die Einstellung gilt für die laufende Sitzung.
+Auf großen Bildschirmen nutzt der Stammbaum die verfügbare Breite. **Baum vergrößern** steht bei den Ansichtsreitern, blendet Navigation, Kopfbereich und Übersichtszahlen aus und nutzt auch auf Laptops und kleinen Bildschirmen die Fensterhöhe für den Arbeitsbereich. Suche und Personendetails bleiben erreichbar; auf schmalen Bildschirmen stehen die Details unter dem Baum im scrollbar erreichbaren Arbeitsbereich. **Ansicht verkleinern** oder **Escape** stellt die normale Ansicht wieder her; Escape schließt zuerst einen geöffneten Dialog oder die Druckoptionen. Die Einstellung gilt für die laufende Sitzung.
 
 ## Speichern und sichern
 
@@ -48,6 +48,8 @@ Bei beschädigten Browserdaten zuerst **Rohdaten sichern**, anschließend über 
 Familiendaten und Sicherungen sind **nicht verschlüsselt**. Wer Zugriff auf das Browserprofil oder die Dateien hat, kann sie lesen. Es gibt keine Benutzerkonten oder Zugriffstrennung innerhalb der Anwendung. Auch eine exportierte Chronik enthält persönliche Angaben; die Empfänger selbst auswählen.
 
 ## Als Dokument ausgeben
+
+**Druck / PDF** öffnet die zunächst eingeklappten Druckoptionen. **Inhalt** bündelt Personenauswahl und Labels, **Baumdruck** Papierformat, Seitenaufteilung und Verzeichnis. Darunter stehen die Ausgabeaktionen; in der Chronik auch **Dokument herunterladen**. Die Optionen überlagern den Arbeitsbereich, ohne den Baum zu verkleinern. Escape oder ein Klick außerhalb schließt sie; Einstellungen bleiben während der Sitzung erhalten.
 
 **Baum drucken / PDF** in der Stammbaumansicht öffnet den Browserdruck. Dort **Als PDF speichern** wählen. Der vollständige Baum wird unabhängig von Suche und Scrollposition kompakt auf A4-Querformatblätter verteilt: **acht Personen je Generation und vier Generationen je Blatt, also 32 Kartenplätze**. Namen werden mit ungefähr 8,4 Punkt gedruckt. Mehr als acht Personen in einer Generation oder mehr als vier Generationen werden auf weitere Baumblätter verteilt; Karten werden nicht geteilt. Die Familienreihenfolge und gebündelten Linien entsprechen der Bildschirmansicht. Weich gerundete Karten und einheitliche Systemschrift greifen die Gestaltung der Oberfläche auf. Die Karten zeigen Namen und vorhandene Lebensdaten, ohne Personennummern oder Elternangaben. Vollständig unbekannte Lebensdaten bleiben leer.
 
