@@ -63,7 +63,26 @@ function normalizePrintOptions(input = {}) {
   options.treePaper = input.treePaper === undefined ? 'A4' : input.treePaper;
   if (!['A4', 'A3'].includes(options.treePaper)) throw new Error('Ungültiges Druckpapier.');
   options.hiddenPersonIds = references(input.hiddenPersonIds === undefined ? [] : input.hiddenPersonIds, 'Druckauswahl', MAX_PEOPLE);
+  options.highlightPersonId = input.highlightPersonId === undefined || input.highlightPersonId === '' ? '' : identifier(input.highlightPersonId);
   return options;
+}
+
+/** Traverse upwards and downwards separately: siblings and partners are not direct lineage. */
+export function directLineIds(tree, personId) {
+  const people = new Map(tree.people.map(person => [person.id, person]));
+  if (!people.has(personId)) return new Set();
+  const children = new Map(tree.people.map(person => [person.id, []]));
+  for (const person of tree.people) for (const parentId of person.parentIds) children.get(parentId)?.push(person.id);
+  const result = new Set([personId]);
+  for (const next of [id => people.get(id)?.parentIds ?? [], id => children.get(id) ?? []]) {
+    const visited = new Set([personId]);
+    const queue = [personId];
+    for (let i = 0; i < queue.length; i++) for (const id of next(queue[i])) {
+      if (visited.has(id)) continue;
+      visited.add(id); result.add(id); queue.push(id);
+    }
+  }
+  return result;
 }
 
 export function createPerson(fields = {}) {
@@ -92,6 +111,7 @@ export function validateTree(input) {
   const tree = { version: 1, title: text(input.title, 'Titel', 200) || 'Meine Familie', people: input.people.map(normalizePerson), printOptions: normalizePrintOptions(input.printOptions) };
   const byId = new Map(tree.people.map(person => [person.id, person]));
   tree.printOptions.hiddenPersonIds = tree.printOptions.hiddenPersonIds.filter(id => byId.has(id));
+  if (!byId.has(tree.printOptions.highlightPersonId)) tree.printOptions.highlightPersonId = '';
   if (byId.size !== tree.people.length) throw new Error('Personenkennungen müssen eindeutig sein.');
   for (const person of tree.people) {
     for (const id of [...person.parentIds, ...person.partnerIds]) {

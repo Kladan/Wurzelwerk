@@ -414,3 +414,11 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
 .print-selection-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .print-person-options { max-height: 35vh; }
 .print-person-options label { padding: 6px 0; }
+
+.print-lineage-option { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; min-width: 0; font-size: 12px; }
+.print-lineage-option select { width: 100%; min-width: 0; }
+.tree-print .tree-print-card.lineage-highlight rect { stroke: #193f2c; stroke-width: 4; }
+.tree-print .family-connection.related .connection-ink path { stroke: #193f2c; stroke-width: 4; }
+.tree-print .family-connection.related .connection-ink circle { fill: #193f2c; r: 3.5; }
+
+.tree-print .lineage-connection .connection-halo { display: none; }

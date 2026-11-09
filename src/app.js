@@ -19,11 +19,11 @@ let multipleSelection = false;
 let query = '';
 let undoTree = null;
 let toastTimer;
-let includeTreeIndex, includeLabels, singlePageTree, treePaper, hiddenPersonIds;
+let includeTreeIndex, includeLabels, singlePageTree, treePaper, hiddenPersonIds, highlightPersonId;
 syncPrintOptions();
 
 function syncPrintOptions() {
-  ({ includeTreeIndex, includeLabels, singlePageTree, treePaper } = tree.printOptions);
+  ({ includeTreeIndex, includeLabels, singlePageTree, treePaper, highlightPersonId } = tree.printOptions);
   hiddenPersonIds = new Set(tree.printOptions.hiddenPersonIds);
 }
 
@@ -38,6 +38,8 @@ const treePrintOptions = () => `<fieldset class="tree-print-options"><legend>Bau
   <label class="print-index-option"><input type="checkbox" id="print-tree-single" ${singlePageTree ? 'checked' : ''} aria-describedby="tree-print-hint"> Gesamten Baum auf eine Seite</label>
   <label class="print-index-option">Papier <select id="print-tree-paper"><option value="A4" ${treePaper === 'A4' ? 'selected' : ''}>A4 quer</option><option value="A3" ${treePaper === 'A3' ? 'selected' : ''}>A3 quer</option></select></label>
   <label class="print-index-option"><input type="checkbox" id="print-tree-index" ${includeTreeIndex ? 'checked' : ''}> Verzeichnis im PDF</label>
+  <label class="print-lineage-option">Direkten Strang hervorheben <select id="print-tree-lineage" aria-describedby="tree-lineage-hint"><option value="">Keine Hervorhebung</option>${[...tree.people].sort((a, b) => displayName(a).localeCompare(displayName(b), 'de')).map(person => `<option value="${e(person.id)}" ${highlightPersonId === person.id ? 'selected' : ''}>${e(displayName(person))} (${e(lifespan(person))})${person.birthPlace ? ` · ${e(person.birthPlace)}` : ''}</option>`).join('')}</select></label>
+  <p id="tree-lineage-hint">Markiert die Person sowie alle direkten Vorfahren und Nachkommen mit kräftigen Kartenrändern und Linien. Ausgeblendete Personen bleiben ausgeblendet.</p>
   <p id="tree-print-hint">Eine Seite: Bei großen Bäumen wird die Schrift klein; A3 bietet mehr Platz. Verzeichnis, lange Labels und Beziehungen über Generationsgrenzen können zusätzliche Anhangseiten erzeugen.</p>
   </fieldset>`;
 const labelOption = () => `<label class="print-index-option"><input type="checkbox" id="include-labels" ${includeLabels ? "checked" : ""}> Labels ausgeben</label>`;
@@ -355,10 +357,10 @@ app.addEventListener('click', event => {
 });
 
 app.addEventListener('change', event => {
-  const key = { 'include-labels': 'includeLabels', 'print-tree-index': 'includeTreeIndex', 'print-tree-single': 'singlePageTree', 'print-tree-paper': 'treePaper' }[event.target.id];
+  const key = { 'include-labels': 'includeLabels', 'print-tree-index': 'includeTreeIndex', 'print-tree-single': 'singlePageTree', 'print-tree-paper': 'treePaper', 'print-tree-lineage': 'highlightPersonId' }[event.target.id];
   if (!key) return;
   try {
-    savePrintOptions({ [key]: key === 'treePaper' ? event.target.value : event.target.checked });
+    savePrintOptions({ [key]: ['treePaper', 'highlightPersonId'].includes(key) ? event.target.value : event.target.checked });
   } catch (error) { notify(error.message); }
   render();
   app.querySelector(`#${event.target.id}`)?.focus();
@@ -404,7 +406,7 @@ window.addEventListener('beforeprint', () => {
   printFocus = document.activeElement;
   const output = document.createElement('div');
   output.id = 'tree-print-output';
-  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex, includeLabels, hiddenPersonIds, singlePage: singlePageTree, paper: treePaper });
+  output.innerHTML = treePrintMarkup(tree, { includeIndex: includeTreeIndex, includeLabels, hiddenPersonIds, singlePage: singlePageTree, paper: treePaper, highlightPersonId });
   output.style.cssText = 'display:block;position:fixed;visibility:hidden;pointer-events:none';
   document.body.append(output);
   fitTreePrintText(output);

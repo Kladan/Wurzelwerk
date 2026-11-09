@@ -61,6 +61,8 @@ Standardmäßig wird nur der Baum gedruckt. Bei Beziehungen über Blatt- oder Ge
 
 Ausgaben mit ausgeblendeten Personen sind als Auszug gekennzeichnet. Beziehungen zu diesen Personen entfallen; es werden keine Ersatzbeziehungen hergestellt. Generationen und Karten werden für den Auszug neu angeordnet. Freitexte sichtbarer Personen bleiben unverändert und können weiterhin Namen ausgeblendeter Personen enthalten.
 
+**Direkten Strang hervorheben** unter **Druck / PDF → Baumdruck** betont die gewählte Bezugsperson sowie sämtliche direkten Vorfahren und Nachkommen durch kräftigere Kartenränder und Verbindungslinien. Geschwister, andere Seitenzweige und reine Partnerbeziehungen werden nicht hervorgehoben. **Keine Hervorhebung** schaltet die Option aus. Die Einstellung wird lokal und in JSON-Sicherungen gespeichert. Ausgeblendete Personen bleiben ausgeblendet; die Zugehörigkeit zum Strang wird auch über ausgeblendete Zwischenpersonen hinweg ermittelt. Die Option gilt für den Baumdruck.
+
 **Familienchronik** zeigt die gewählten Personen mit ihren Beziehungen, Erinnerungen und Quellen. **Drucken / PDF** öffnet den Druckdialog des Browsers; dort einen Drucker oder **Als PDF speichern** wählen. Die Anwendung selbst schreibt keine PDF-Datei ohne diesen Dialog.
 
 **Dokument herunterladen** erzeugt zusätzlich eine eigenständige HTML-Chronik. Sie lässt sich ohne laufenden Server öffnen und drucken. Sie enthält ihre Gestaltung und benötigt keine externen Ressourcen. Es werden immer alle erfassten Personen und Notizen ausgegeben; eine automatische Ausblendung lebender Personen gibt es derzeit nicht.

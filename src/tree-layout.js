@@ -6,7 +6,7 @@ export function connectionGap(generation = []) {
   return Math.max(60, 32 + (2 * count - 1) * laneSpacing);
 }
 
-export function familyConnections(tree, nodes) {
+export function familyConnections(tree, nodes, highlightedIds = new Set()) {
   const families = new Map();
   for (const child of tree.people) {
     if (!child.parentIds.length || !nodes.has(child.id)) continue;
@@ -83,6 +83,23 @@ export function familyConnections(tree, nodes) {
     line(Math.min(joint, ...cx), childY, Math.max(joint, ...cx), childY);
     for (const c of children) line(c.x + c.width / 2, childY, c.x + c.width / 2, c.y);
     roundConnection(result);
+    // Reuse the full family's lanes and ports. Only the direct parent/child
+    // branches receive ink, so siblings and co-parents stay unaccented.
+    const markedParents = parents.map((p, i) => ({ p, x: px[i], id: routeIds[i] })).filter(({ id }) => highlightedIds.has(id));
+    const markedChildren = group.children.map((id, i) => ({ id, x: cx[i], node: children[i] })).filter(({ id }) => highlightedIds.has(id));
+    if (markedParents.length && markedChildren.length) {
+      const highlighted = { ...result, paths: [], segments: [], junctions: [], highlight: true };
+      const add = (x1, y1, x2, y2) => {
+        if (x1 !== x2 || y1 !== y2) highlighted.segments.push({ x1, y1, x2, y2 });
+      };
+      for (const { p, x } of markedParents) add(x, p.y + p.height, x, parentY);
+      add(Math.min(joint, ...markedParents.map(p => p.x)), parentY, Math.max(joint, ...markedParents.map(p => p.x)), parentY);
+      add(joint, parentY, joint, childY);
+      add(Math.min(joint, ...markedChildren.map(p => p.x)), childY, Math.max(joint, ...markedChildren.map(p => p.x)), childY);
+      for (const { x, node } of markedChildren) add(x, childY, x, node.y);
+      roundConnection(highlighted, result.junctions);
+      result.highlighted = highlighted;
+    }
     return result;
   });
 }
@@ -111,7 +128,7 @@ function freeColumn(preferred, blocked, left, right) {
 
 // Split buses at their branches before rounding. Only degree-two elbows bend;
 // T junctions stay connected and receive a dot, straight joins receive neither.
-function roundConnection(group) {
+function roundConnection(group, fixedJunctions = []) {
   const vertices = new Map();
   const vertex = (x, y) => {
     const key = `${x}:${y}`;
@@ -135,7 +152,7 @@ function roundConnection(group) {
   group.curves = [];
   for (const p of vertices.values()) {
     if (p.edges.length >= 3) group.junctions.push({ x: p.x, y: p.y });
-    if (p.edges.length !== 2) continue;
+    if (p.edges.length !== 2 || fixedJunctions.some(j => j.x === p.x && j.y === p.y)) continue;
     const [a, b] = p.edges;
     if ((a.x - p.x) * (b.y - p.y) === (a.y - p.y) * (b.x - p.x)) continue;
     p.radius = Math.min(8, Math.hypot(a.x - p.x, a.y - p.y) / 2, Math.hypot(b.x - p.x, b.y - p.y) / 2);
@@ -152,9 +169,11 @@ function roundConnection(group) {
 // A light halo makes crossings look like crossings, not additional junctions.
 // Junction dots are added only where the captured family actually branches.
 export function connectionMarkup(connections, selectedId = null, bounds = null) {
+  const relatedToSelection = group => group.highlight || (selectedId && group.linkedIds.includes(selectedId));
   return connections.filter(group => group.paths.length)
-    .sort((a, b) => Number(a.linkedIds.includes(selectedId)) - Number(b.linkedIds.includes(selectedId))).map(group => {
-    const related = selectedId && group.linkedIds.includes(selectedId);
+    .sort((a, b) => Number(Boolean(relatedToSelection(a))) - Number(Boolean(relatedToSelection(b))))
+    .flatMap(group => group.highlighted ? [group, group.highlighted] : [group]).map(group => {
+    const related = relatedToSelection(group);
     const segments = bounds ? group.segments.filter(s => Math.max(s.x1, s.x2) >= bounds.x && Math.min(s.x1, s.x2) <= bounds.x + bounds.width &&
       Math.max(s.y1, s.y2) >= bounds.y && Math.min(s.y1, s.y2) <= bounds.y + bounds.height).map(s => {
       const x = value => Math.max(bounds.x, Math.min(bounds.x + bounds.width, value));
@@ -167,7 +186,7 @@ export function connectionMarkup(connections, selectedId = null, bounds = null) 
       .map(({ start, corner, end }) => `M${start.x} ${start.y} Q${corner.x} ${corner.y} ${end.x} ${end.y}`);
     const paths = [...segments, ...curves].map(d => `<path d="${d}"/>`).join('');
     const junctions = group.junctions.filter(p => !bounds || p.x >= bounds.x && p.x <= bounds.x + bounds.width && p.y >= bounds.y && p.y <= bounds.y + bounds.height);
-    const markup = `<g class="family-connection${related ? ' related' : ''}"><g class="connection-halo">${paths}</g><g class="connection-ink">${paths}${junctions.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.5"/>`).join('')}</g></g>`;
+    const markup = `<g class="family-connection${related ? ' related' : ''}${group.highlight ? ' lineage-connection' : ''}"><g class="connection-halo">${paths}</g><g class="connection-ink">${paths}${junctions.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.5"/>`).join('')}</g></g>`;
     // Clip curves at page edges without changing their shape or inventing elbows.
     return bounds ? `<svg x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" viewBox="${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}" overflow="hidden">${markup}</svg>` : markup;
   }).join('');

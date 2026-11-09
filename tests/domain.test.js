@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTree, createPerson, validateTree, upsertPerson, addRelative, linkPeople, getFamilyLinkSuggestion, deletePerson, getGenerations, getTreeGenerations, getParentSuggestions, demoTree } from '../src/domain.js';
+import { createTree, createPerson, validateTree, upsertPerson, addRelative, linkPeople, getFamilyLinkSuggestion, deletePerson, getGenerations, getTreeGenerations, getParentSuggestions, demoTree, directLineIds } from '../src/domain.js';
+
+test('direct lineage follows ancestors and descendants without including side branches or partners', () => {
+  const person = (id, parentIds = []) => createPerson({ id, firstName: id, parentIds });
+  const tree = validateTree({ ...createTree(), people: [person('g'), person('p', ['g']), person('aunt', ['g']),
+    person('root', ['p']), person('sibling', ['p']), person('coparent'), person('child', ['root', 'coparent']), person('grandchild', ['child'])] });
+  const before = structuredClone(tree);
+  assert.deepEqual([...directLineIds(tree, 'root')].sort(), ['child', 'g', 'grandchild', 'p', 'root']);
+  assert.deepEqual([...directLineIds(tree, 'missing')], []);
+  assert.deepEqual([...directLineIds({ people: [person('alone')] }, 'alone')], ['alone']);
+  assert.deepEqual(tree, before);
+});
 
 test('labels are optional, bounded, projected and editable without changing relatives', () => {
   const legacy = demoTree();

@@ -3,6 +3,29 @@ import assert from 'node:assert/strict';
 import { createPerson } from '../src/domain.js';
 import { familyConnections, connectionMarkup, connectionGap } from '../src/tree-layout.js';
 
+test('lineage ink retains family junctions and ports while excluding sibling and co-parent stems', () => {
+  const person = (id, parentIds = []) => createPerson({ id, firstName: id, parentIds });
+  const tree = { people: [person('p'), person('other'), ...['a', 'b', 'c'].map(id => person(id, ['p', 'other']))] };
+  const nodes = new Map([['p', { x: 200, y: 0, width: 180, height: 120, row: 0 }],
+    ['other', { x: 600, y: 0, width: 180, height: 120, row: 0 }],
+    ...['a', 'b', 'c'].map((id, i) => [id, { x: i * 200, y: 240, width: 180, height: 120, row: 1 }])]);
+  const [normal] = familyConnections(tree, nodes);
+  const [marked] = familyConnections(tree, nodes, new Set(['p', 'a']));
+  const { highlighted, ...base } = marked;
+  assert.deepEqual(base, normal);
+  assert.ok(highlighted.segments.some(s => s.y2 === 240 && s.x2 === 90));
+  assert.ok(!highlighted.segments.some(s => s.y2 === 240 && [290, 490].includes(s.x2)));
+  assert.ok(!highlighted.segments.some(s => s.y1 === 120 && s.x1 === 690));
+  for (const corner of highlighted.curves.map(c => c.corner)) {
+    assert.ok(!normal.junctions.some(j => j.x === corner.x && j.y === corner.y));
+  }
+  assert.ok(connectionMarkup([marked]).includes('related lineage-connection'));
+  // A later family's halo must still pass over both layers of the first family.
+  const later = { ...normal, paths: ['M900 100 L900 200'], segments: [{ x1: 900, y1: 100, x2: 900, y2: 200 }], curves: [], junctions: [] };
+  const markup = connectionMarkup([marked, later]);
+  assert.ok(markup.indexOf('lineage-connection') < markup.indexOf('M900 100 L900 200'));
+});
+
 test('siblings share a family bus while a second parent pair keeps a separate connection', () => {
   const person = (id, parentIds = []) => createPerson({ id, firstName: id, parentIds });
   const tree = { people: [person('a'), person('b'), person('c'), person('d'),

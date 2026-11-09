@@ -4,6 +4,29 @@ import { createTree, createPerson, validateTree, demoTree, displayName, treeForP
 import { loadTree, saveTree, safeFilename, STORAGE_KEY } from '../src/storage.js';
 import { escapeHtml, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup } from '../src/report.js';
 
+test('optional print lineage marks only direct cards, survives hidden intermediates and never exposes hidden names', () => {
+  const person = (id, parentIds = []) => createPerson({ id, firstName: id === 'root' ? '<Root>' : id, parentIds });
+  const tree = validateTree({ ...createTree(), people: [person('g'), person('p', ['g']), person('root', ['p']),
+    person('sibling', ['p']), person('other'), person('child', ['root', 'other']), person('grandchild', ['child'])] });
+  const before = structuredClone(tree);
+  for (const singlePage of [false, true]) for (const paper of ['A4', 'A3']) {
+    const markup = treePrintMarkup(tree, { highlightPersonId: 'root', singlePage, paper });
+    const names = [...markup.matchAll(/class="tree-print-card lineage-highlight"><title>([^<]*)<\/title>/g)].map(m => m[1]);
+    assert.deepEqual(names.sort(), ['&lt;Root&gt;', 'child', 'g', 'grandchild', 'p']);
+    assert.ok(markup.includes('related lineage-connection'));
+    const excerpt = treePrintMarkup(tree, { highlightPersonId: 'root', hiddenPersonIds: ['root', 'p'], singlePage, paper, includeIndex: true });
+    assert.ok(!excerpt.includes('Root'));
+    assert.ok(excerpt.includes('ausgeblendeten Bezugsperson'));
+    assert.equal((excerpt.match(/class="tree-print-card lineage-highlight"/g) ?? []).length, 3);
+  }
+  for (const highlightPersonId of ['', 'missing']) {
+    const markup = treePrintMarkup(tree, { highlightPersonId });
+    assert.ok(!markup.includes('lineage-highlight'));
+    assert.ok(!markup.includes('lineage-connection'));
+  }
+  assert.deepEqual(tree, before);
+});
+
 test('print selection omits people and their references from every output without changing stored data', () => {
   const tree = validateTree({ ...createTree('Fiktiver Auszug'), people: [
     createPerson({ id: 'grandparent', firstName: 'Grosselternname' }),
@@ -68,8 +91,8 @@ test('print options survive reload, backup and person edits; legacy trees get de
   delete legacy.printOptions;
   const storage = setupStorage(JSON.stringify(legacy));
   const tree = loadTree();
-  assert.deepEqual(tree.printOptions, { includeLabels: false, includeTreeIndex: false, singlePageTree: false, treePaper: 'A4', hiddenPersonIds: [] });
-  const options = { includeLabels: true, includeTreeIndex: true, singlePageTree: true, treePaper: 'A3', hiddenPersonIds: [tree.people[0].id] };
+  assert.deepEqual(tree.printOptions, { includeLabels: false, includeTreeIndex: false, singlePageTree: false, treePaper: 'A4', hiddenPersonIds: [], highlightPersonId: '' });
+  const options = { includeLabels: true, includeTreeIndex: true, singlePageTree: true, treePaper: 'A3', hiddenPersonIds: [tree.people[0].id], highlightPersonId: tree.people[0].id };
   const saved = saveTree({ ...tree, printOptions: { ...options, unexpected: 'discard' } });
   assert.deepEqual(loadTree().printOptions, options);
   assert.deepEqual(validateTree(JSON.parse(storage.value)), saved);
@@ -78,6 +101,7 @@ test('print options survive reload, backup and person edits; legacy trees get de
   assert.deepEqual(saveTree(edited).printOptions, options);
   const deleted = saveTree(deletePerson(edited, tree.people[0].id));
   assert.deepEqual(deleted.printOptions.hiddenPersonIds, []);
+  assert.equal(deleted.printOptions.highlightPersonId, '');
   assert.deepEqual(createTree().printOptions, tree.printOptions);
 });
 
@@ -86,7 +110,7 @@ test('invalid print options and failed writes preserve the previous data and opt
   loadTree();
   const tree = saveTree(demoTree());
   const before = storage.value;
-  for (const printOptions of [null, [], 'A4', { includeLabels: 'false' }, { singlePageTree: 1 }, { includeTreeIndex: null }, { treePaper: 'A5' }, { hiddenPersonIds: ['<script>'] }, { hiddenPersonIds: Array(5001).fill('a') }, { hiddenPersonIds: ['a', 'a'] }]) {
+  for (const printOptions of [null, [], 'A4', { includeLabels: 'false' }, { singlePageTree: 1 }, { includeTreeIndex: null }, { treePaper: 'A5' }, { highlightPersonId: null }, { highlightPersonId: '<script>' }, { highlightPersonId: 42 }, { hiddenPersonIds: ['<script>'] }, { hiddenPersonIds: Array(5001).fill('a') }, { hiddenPersonIds: ['a', 'a'] }]) {
     assert.throws(() => saveTree({ ...tree, printOptions }));
     assert.equal(storage.value, before);
   }

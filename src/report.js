@@ -1,4 +1,4 @@
-import { displayName, getGenerations, getTreeGenerations, treeForPrint } from './domain.js';
+import { displayName, getGenerations, getTreeGenerations, treeForPrint, directLineIds } from './domain.js';
 import { familyConnections, connectionMarkup, connectionGap } from './tree-layout.js';
 
 export const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -54,7 +54,9 @@ export function reportDocument(tree, options = {}) {
 
 // Eight compact cards by four generations fit an A4 landscape tree sheet.
 // Page boundaries always fall between cards; the index is an optional appendix.
-export function treePrintMarkup(tree, { includeIndex = false, includeLabels = false, singlePage = false, paper = 'A4', hiddenPersonIds = [] } = {}) {
+export function treePrintMarkup(tree, { includeIndex = false, includeLabels = false, singlePage = false, paper = 'A4', hiddenPersonIds = [], highlightPersonId = '' } = {}) {
+  const highlightedIds = directLineIds(tree, highlightPersonId);
+  const highlightPerson = tree.people.find(person => person.id === highlightPersonId);
   const total = tree.people.length;
   tree = treeForPrint(tree, hiddenPersonIds);
   const isExcerpt = tree.people.length < total;
@@ -111,7 +113,7 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
     const parent = nodes.get(id);
     return parent.page !== node.page || parent.row !== node.row - 1;
   }));
-  const connections = familyConnections(tree, nodes);
+  const connections = familyConnections(tree, nodes, highlightedIds);
   const header = label => `<header><p>WURZELWERK · STAMMBAUM</p><h1>${escapeHtml(tree.title)}</h1><p>${label}</p>${isExcerpt ? '<p>Auszug: Ausgeblendete Personen und ihre Beziehungen sind nicht enthalten.</p>' : ''}</header>`;
   const appendix = includeIndex || !nodes.size ? `<section class="tree-print-index">${header('Personenverzeichnis')}
     ${nodes.size ? `<ul>${[...nodes.values()].map(node => `<li><strong>${personLabel(node.person)}</strong> · ${location(node)}${node.person.parentIds.length ? `<br>Eltern: ${refs(node.person.parentIds)}` : ''}${node.person.partnerIds.length ? `<br>Partnerschaften: ${refs(node.person.partnerIds)}` : ''}</li>`).join('')}</ul>` : (isExcerpt ? '<p>Alle Personen sind für diese Ausgabe ausgeblendet.</p>' : '<p>Noch keine Personen erfasst.</p>')}
@@ -137,12 +139,12 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
         const labels = Array.from(labelText(person));
         const labelLine = labels.slice(0, 26).join("") + (labels.length > 26 ? "…" : "");
         const nameY = y + (labels.length ? 27 : original ? 31 : life ? 45 : 58) - (!original && lines[1] ? 7 : 0);
-        return `<g class="tree-print-card"><title>${escapeHtml(displayName(person))}${original ? ` · Vorname(n): ${escapeHtml(original)}` : ''}</title><rect x="${x}" y="${y}" width="186" height="118" rx="15"/>
+        return `<g class="tree-print-card${highlightedIds.has(person.id) ? ' lineage-highlight' : ''}"><title>${escapeHtml(displayName(person))}${original ? ` · Vorname(n): ${escapeHtml(original)}` : ''}</title><rect x="${x}" y="${y}" width="186" height="118" rx="15"/>
           ${lines.filter(Boolean).map((line, i) => `<text class="tree-print-name" x="${x + 93}" y="${nameY + i * 24}" text-anchor="middle" font-size="18" data-fit-width="154">${escapeHtml(line)}</text>`).join('')}
           ${original ? `<text class="tree-print-original" x="${x + 93}" y="${y + (labels.length ? 72 : 77)}" text-anchor="middle" font-size="15" data-fit-width="154">${escapeHtml(originalLine)}</text>` : ''}
           ${life ? `<text class="tree-print-dates" x="${x + 93}" y="${y + (labels.length ? 90 : 96)}" text-anchor="middle" font-size="15">${escapeHtml(life)}</text>` : ''}${labelLine ? `<text class="tree-print-labels" x="${x + 93}" y="${y + 109}" text-anchor="middle" font-size="14" data-fit-width="154">${escapeHtml(labelLine)}</text>` : ''}</g>`;
       }).join('')}</svg>
-      <p class="tree-print-legend">Linien verbinden Eltern und Kinder.${includeLabels && cards.some(({ person }) => Array.from(labelText(person)).length > 26) ? ' Labels mit … sind gekürzt; vollständige Labels stehen im Anhang.' : ''}${cards.some(({ person }) => person.nickname && person.firstName) ? ' Bei Spitznamen stehen die Vornamen klein darunter.' : ''}${disconnected.length ? ' Verbindungen über Blatt- und Generationsgrenzen stehen im Anhang.' : ''}${cards.some(({ person }) => Array.from(displayName(person)).length > 42 || (person.nickname && Array.from(person.firstName).length > 26)) ? ' Namen mit … sind gekürzt.' : ''}${includeIndex ? ' Vollständige Namen und Partnerschaften im Verzeichnis.' : ''}</p></section>`;
+      <p class="tree-print-legend">Linien verbinden Eltern und Kinder.${highlightPerson ? ` Kräftige Ränder und Linien: direkter Strang von ${tree.people.some(person => person.id === highlightPersonId) ? escapeHtml(displayName(highlightPerson)) : 'einer ausgeblendeten Bezugsperson'} (Person, Vorfahren und Nachkommen).` : ''}${includeLabels && cards.some(({ person }) => Array.from(labelText(person)).length > 26) ? ' Labels mit … sind gekürzt; vollständige Labels stehen im Anhang.' : ''}${cards.some(({ person }) => person.nickname && person.firstName) ? ' Bei Spitznamen stehen die Vornamen klein darunter.' : ''}${disconnected.length ? ' Verbindungen über Blatt- und Generationsgrenzen stehen im Anhang.' : ''}${cards.some(({ person }) => Array.from(displayName(person)).length > 42 || (person.nickname && Array.from(person.firstName).length > 26)) ? ' Namen mit … sind gekürzt.' : ''}${includeIndex ? ' Vollständige Namen und Partnerschaften im Verzeichnis.' : ''}</p></section>`;
   }).join('')}${appendix}${includeLabels && !includeIndex && [...nodes.values()].some(({ person }) => Array.from(labelText(person)).length > 26) ? `<section class="tree-print-index">${header('Vollständige Labels')}<ul>${[...nodes.values()].filter(({ person }) => labelText(person)).map(node => `<li>${reference(node.person.id)}</li>`).join('')}</ul></section>` : ''}</article>`;
 }
 
