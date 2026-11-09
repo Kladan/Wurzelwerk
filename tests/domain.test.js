@@ -202,9 +202,9 @@ test('parents follow child branches while married siblings retain birth order', 
 test('partnerships on both sides never override sibling birth order', () => {
   const person = (id, fields = {}) => createPerson({ id, firstName: id, ...fields });
   const tree = validateTree({ ...createTree(), people: [person('p'),
-    person('left', { partnerIds: ['s1'] }), person('right', { partnerIds: ['s2'] }),
+    person('left', { partnerIds: ['s1'] }), person('right', { partnerIds: ['s4'] }),
     ...['s1', 's2', 's3', 's4'].map((id, i) => person(id, { parentIds: ['p'],
-      birthDate: String(1980 + i), partnerIds: i < 2 ? [i === 0 ? 'left' : 'right'] : [] })),
+      birthDate: String(1980 + i), partnerIds: i === 0 ? ['left'] : i === 3 ? ['right'] : [] })),
   ] });
   const row = getTreeGenerations(tree)[1].map(p => p.id);
   assert.equal(Math.abs(row.indexOf('left') - row.indexOf('s1')), 1);
@@ -214,8 +214,10 @@ test('partnerships on both sides never override sibling birth order', () => {
 
 test('a single partner faces their own sibling block before the other partners siblings', () => {
   const person = (id, fields = {}) => createPerson({ id, firstName: id, ...fields });
-  for (const dOlder of [true, false]) for (const knownParents of [true, false]) for (const cYoungest of [true, false]) {
-    const tree = validateTree({ ...createTree(), people: [person('bp'), person('cp'), person('ap'),
+  for (const dOlder of [true, false]) for (const knownParents of [true, false]) for (const cYoungest of [true, false]) for (const cOnRight of [true, false]) {
+    const tree = validateTree({ ...createTree(), people: [
+      person('bp', { firstName: cOnRight ? 'Alpha' : 'Zulu' }),
+      person('cp', { firstName: cOnRight ? 'Zulu' : 'Alpha' }), person('ap'),
       person('a', { parentIds: knownParents ? ['ap'] : [], partnerIds: ['b'] }),
       person('b', { parentIds: ['bp'], birthDate: dOlder ? '1960' : '1950', partnerIds: ['a'] }),
       person('d', { parentIds: ['bp'], birthDate: dOlder ? '1950' : '1960', partnerIds: ['c'] }),
@@ -226,7 +228,17 @@ test('a single partner faces their own sibling block before the other partners s
     const before = structuredClone(tree);
     const rows = getTreeGenerations(tree).map(row => row.map(p => p.id));
     const cBlock = cYoungest ? ['cs1', 'cs2', 'cs3', 'c'] : ['c', 'cs1', 'cs2', 'cs3'];
-    assert.deepEqual(rows[1], dOlder ? [...cBlock, 'd', 'b', 'a'] : ['a', 'b', 'd', ...cBlock]);
+    const bBlockWithPartner = dOlder ? ['d', 'b', 'a'] : ['a', 'b', 'd'];
+    const branchStart = rows[1].indexOf(bBlockWithPartner[0]);
+    assert.deepEqual(rows[1].slice(branchStart, branchStart + 3), bBlockWithPartner);
+    const cStart = rows[1].indexOf(cBlock[0]);
+    assert.deepEqual(rows[1].slice(cStart, cStart + cBlock.length), cBlock);
+    // In the reported case the right-hand branch stays right; A moves between
+    // the two sibling blocks instead of forcing the entire chain to reverse.
+    if (cOnRight && dOlder) assert.deepEqual(rows[1], [...bBlockWithPartner, ...cBlock]);
+    const withoutA = { ...tree, people: tree.people.filter(p => p.id !== 'a').map(p => ({ ...p,
+      parentIds: p.parentIds.filter(id => id !== 'a'), partnerIds: p.partnerIds.filter(id => id !== 'a') })) };
+    assert.deepEqual(rows[1].filter(id => id !== 'a'), getTreeGenerations(withoutA)[1].map(p => p.id));
     assert.deepEqual(rows.map(row => [...row].sort()), getGenerations(tree).map(row => row.map(p => p.id).sort()));
     const reversed = { ...tree, people: [...tree.people].reverse().map(p => ({ ...p,
       parentIds: [...p.parentIds].reverse(), partnerIds: [...p.partnerIds].reverse() })) };
@@ -237,6 +249,35 @@ test('a single partner faces their own sibling block before the other partners s
     }
     assert.deepEqual(tree, before);
   }
+});
+
+test('single partners attach to their own sibling block in a branched partnership family', () => {
+  const person = (id, fields = {}) => createPerson({ id, firstName: id, ...fields });
+  const tree = validateTree({ ...createTree(), people: [person('bp'), person('cp'),
+    person('a', { partnerIds: ['b'] }), person('x', { partnerIds: ['d'] }),
+    person('b', { parentIds: ['bp'], birthDate: '1960', partnerIds: ['a'] }),
+    person('d', { parentIds: ['bp'], birthDate: '1950', partnerIds: ['c', 'x'] }),
+    person('c', { parentIds: ['cp'], birthDate: '1950', partnerIds: ['d'] }),
+    person('cs', { parentIds: ['cp'], birthDate: '1960' }),
+  ] });
+  const before = structuredClone(tree);
+  const rows = getTreeGenerations(tree).map(row => row.map(p => p.id));
+  assert.deepEqual(rows[1], ['x', 'd', 'b', 'a', 'c', 'cs']);
+  assert.deepEqual(getTreeGenerations({ ...tree, people: [...tree.people].reverse() }).map(row => row.map(p => p.id)), rows);
+  assert.deepEqual(tree, before);
+});
+
+test('competing single partners keep the edge siblings partners nearest on both sides', () => {
+  const person = (id, fields = {}) => createPerson({ id, firstName: id, ...fields });
+  const tree = validateTree({ ...createTree(), people: [person('p'),
+    ...['s1', 's2', 's3', 's4'].map((id, i) => person(id, { parentIds: ['p'], birthDate: String(1950 + i), partnerIds: [`a${i}`] })),
+    ...['a0', 'a1', 'a2', 'a3'].map((id, i) => person(id, { partnerIds: [`s${i + 1}`] })),
+  ] });
+  const before = structuredClone(tree);
+  const rows = getTreeGenerations(tree).map(row => row.map(p => p.id));
+  assert.deepEqual(rows[1], ['a1', 'a0', 's1', 's2', 's3', 's4', 'a3', 'a2']);
+  assert.deepEqual(getTreeGenerations({ ...tree, people: [...tree.people].reverse() }).map(row => row.map(p => p.id)), rows);
+  assert.deepEqual(tree, before);
 });
 
 test('equal family anchors remain deterministic across permuted relationship arrays', () => {

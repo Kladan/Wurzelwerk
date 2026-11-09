@@ -326,17 +326,24 @@ export function getTreeGenerations(tree) {
       for (let i = 0; i < family.length; i++) for (const other of neighbors.get(family[i])) {
         if (!visited.has(other)) { visited.add(other); family.push(other); }
       }
-      const links = family.flatMap(block => block.people.flatMap(person => [...relatives.get(person.id)]
-        .filter(id => person.id < id && blockOf.has(id) && blockOf.get(id) !== block)
-        .map(id => ({ a: person.id, b: id, singleton: block.people.length === 1 || blockOf.get(id).people.length === 1 }))));
-      families.push({ blocks: family, links, key: family.flatMap(block => block.people).sort(compareNames)[0], anchor: Infinity });
+      const attachments = new Map();
+      for (const block of family) if (block.people.length === 1 && neighbors.get(block).size === 1) {
+        const [host] = neighbors.get(block);
+        if (host.people.length < 2) continue;
+        const partnerIndices = host.people.flatMap((person, index) => relatives.get(block.people[0].id).has(person.id) ? [index] : []);
+        attachments.set(block, { host, index: partnerIndices.reduce((sum, index) => sum + index, 0) / partnerIndices.length });
+      }
+      const coreNeighbors = new Map(family.filter(block => !attachments.has(block))
+        .map(block => [block, [...neighbors.get(block)].filter(other => !attachments.has(other))]));
+      families.push({ blocks: family, attachments, coreNeighbors,
+        key: family.flatMap(block => block.people).sort(compareNames)[0], anchor: Infinity });
     }
-    return { families, neighbors };
+    return { families };
   });
   const mean = values => values.length ? values.reduce((sum, x) => sum + x, 0) / values.length : Infinity;
   const compareAnchors = (a, b) => a === b ? 0 : a - b;
   const updateRow = (rowIndex, upwards) => {
-    const { families, neighbors } = rows[rowIndex];
+    const { families } = rows[rowIndex];
     const adjacent = new Set(generations[rowIndex + (upwards ? 1 : -1)]?.map(person => person.id) ?? []);
     const targets = person => (upwards ? children.get(person.id) : person.parentIds)
       .filter(id => adjacent.has(id)).map(id => positions.get(id));
@@ -345,40 +352,39 @@ export function getTreeGenerations(tree) {
       family.anchor = mean(family.blocks.flatMap(block => block.people.flatMap(targets)));
       // Use fixed birth/name keys, never the previous orientation, for ties.
       family.blocks.sort((a, b) => compareAnchors(a.anchor, b.anchor) || compareNames(a.key, b.key));
-      // A partnership chain can satisfy every block adjacency. In particular,
-      // put two partners of different siblings on opposite sides of that block.
-      const ends = family.blocks.filter(block => neighbors.get(block).size === 1);
-      if (ends.length === 2 && family.blocks.every(block => neighbors.get(block).size <= 2)) {
+      const ranks = new Map(family.blocks.map((block, index) => [block, index]));
+      let core = family.blocks.filter(block => !family.attachments.has(block));
+      const ends = core.filter(block => family.coreNeighbors.get(block).length === 1);
+      // Order the remaining chain by anchors. A single partner must not force
+      // another sibling branch to change sides just to stay at a chain end.
+      if (ends.length === 2 && core.every(block => family.coreNeighbors.get(block).length <= 2)) {
         const path = [];
         let current = ends[0];
         let previous = null;
         while (current) {
           path.push(current);
-          const next = [...neighbors.get(current)].find(block => block !== previous);
+          const next = family.coreNeighbors.get(current).find(block => block !== previous);
           previous = current;
           current = next;
         }
-        const ranks = new Map(family.blocks.map((block, index) => [block, index]));
-        const cost = list => {
-          const positions = new Map(list.flatMap(block => block.people).map((person, index) => [person.id, index]));
-          let singletonDistance = 0;
-          let partnerDistance = 0;
-          for (const link of family.links) {
-            const distance = Math.abs(positions.get(link.a) - positions.get(link.b));
-            partnerDistance += distance;
-            if (link.singleton) singletonDistance += distance;
-          }
-          // Keep partners in single-card blocks at the facing sibling edge.
-          // Only reverse whole block chains; sibling birth order stays fixed.
-          return [singletonDistance, partnerDistance,
-            list.reduce((sum, block, index) => sum + Math.abs(index - ranks.get(block)), 0)];
-        };
+        const coreRanks = new Map(core.map((block, index) => [block, index]));
+        const cost = list => list.reduce((sum, block, index) => sum + Math.abs(index - coreRanks.get(block)), 0);
         const reverse = [...path].reverse();
-        const forwardCost = cost(path);
-        const reverseCost = cost(reverse);
-        const difference = forwardCost.map((value, index) => value - reverseCost[index]).find(value => value !== 0) ?? 0;
-        family.blocks = difference <= 0 ? path : reverse;
+        core = cost(path) <= cost(reverse) ? path : reverse;
       }
+      const sides = new Map(core.map(block => [block, { before: [], after: [] }]));
+      for (const [block, { host, index }] of family.attachments) {
+        const midpoint = (host.people.length - 1) / 2;
+        const before = index < midpoint || index === midpoint && ranks.get(block) < ranks.get(host);
+        sides.get(host)[before ? 'before' : 'after'].push(block);
+      }
+      // Partners of an edge sibling stay nearest that edge when several
+      // single cards compete for the same side of a sibling block.
+      const compareAttached = (a, b) => family.attachments.get(b).index - family.attachments.get(a).index || compareNames(a.key, b.key);
+      family.blocks = core.flatMap(block => [
+        ...sides.get(block).before.sort(compareAttached), block,
+        ...sides.get(block).after.sort(compareAttached),
+      ]);
     }
     families.sort((a, b) => compareAnchors(a.anchor, b.anchor) || compareNames(a.key, b.key));
     // Partnerships may move whole blocks, never override sibling birth order.
