@@ -49,7 +49,21 @@ function normalizePerson(input) {
 }
 
 export function createTree(title = 'Meine Familie') {
-  return { version: 1, title: text(title, 'Titel', 200) || 'Meine Familie', people: [] };
+  return { version: 1, title: text(title, 'Titel', 200) || 'Meine Familie', people: [], printOptions: normalizePrintOptions() };
+}
+
+function normalizePrintOptions(input = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Ungültige Druckoptionen.');
+  const options = {};
+  for (const key of ['includeLabels', 'includeTreeIndex', 'singlePageTree']) {
+    const value = input[key] === undefined ? false : input[key];
+    if (typeof value !== 'boolean') throw new Error('Ungültige Druckoptionen.');
+    options[key] = value;
+  }
+  options.treePaper = input.treePaper === undefined ? 'A4' : input.treePaper;
+  if (!['A4', 'A3'].includes(options.treePaper)) throw new Error('Ungültiges Druckpapier.');
+  options.hiddenPersonIds = references(input.hiddenPersonIds === undefined ? [] : input.hiddenPersonIds, 'Druckauswahl', MAX_PEOPLE);
+  return options;
 }
 
 export function createPerson(fields = {}) {
@@ -75,8 +89,9 @@ function normalizeLabels(value) {
 export function validateTree(input) {
   if (!input || typeof input !== 'object' || input.version !== 1) throw new Error('Diese Datei hat kein unterstütztes Stammbaumformat (Version 1).');
   if (!Array.isArray(input.people) || input.people.length > MAX_PEOPLE) throw new Error(`Ein Stammbaum darf höchstens ${MAX_PEOPLE} Personen enthalten.`);
-  const tree = { version: 1, title: text(input.title, 'Titel', 200) || 'Meine Familie', people: input.people.map(normalizePerson) };
+  const tree = { version: 1, title: text(input.title, 'Titel', 200) || 'Meine Familie', people: input.people.map(normalizePerson), printOptions: normalizePrintOptions(input.printOptions) };
   const byId = new Map(tree.people.map(person => [person.id, person]));
+  tree.printOptions.hiddenPersonIds = tree.printOptions.hiddenPersonIds.filter(id => byId.has(id));
   if (byId.size !== tree.people.length) throw new Error('Personenkennungen müssen eindeutig sein.');
   for (const person of tree.people) {
     for (const id of [...person.parentIds, ...person.partnerIds]) {

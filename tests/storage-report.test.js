@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTree, createPerson, validateTree, demoTree, displayName, treeForPrint } from '../src/domain.js';
+import { createTree, createPerson, validateTree, demoTree, displayName, treeForPrint, deletePerson, upsertPerson } from '../src/domain.js';
 import { loadTree, saveTree, safeFilename, STORAGE_KEY } from '../src/storage.js';
 import { escapeHtml, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup } from '../src/report.js';
 
@@ -62,6 +62,43 @@ function setupStorage(value = null) {
   globalThis.localStorage = storage;
   return storage;
 }
+
+test('print options survive reload, backup and person edits; legacy trees get defaults', () => {
+  const legacy = demoTree();
+  delete legacy.printOptions;
+  const storage = setupStorage(JSON.stringify(legacy));
+  const tree = loadTree();
+  assert.deepEqual(tree.printOptions, { includeLabels: false, includeTreeIndex: false, singlePageTree: false, treePaper: 'A4', hiddenPersonIds: [] });
+  const options = { includeLabels: true, includeTreeIndex: true, singlePageTree: true, treePaper: 'A3', hiddenPersonIds: [tree.people[0].id] };
+  const saved = saveTree({ ...tree, printOptions: { ...options, unexpected: 'discard' } });
+  assert.deepEqual(loadTree().printOptions, options);
+  assert.deepEqual(validateTree(JSON.parse(storage.value)), saved);
+  assert.deepEqual(saved.people, tree.people);
+  const edited = upsertPerson(saved, { ...saved.people[1], notes: 'Fiktive Notiz' });
+  assert.deepEqual(saveTree(edited).printOptions, options);
+  const deleted = saveTree(deletePerson(edited, tree.people[0].id));
+  assert.deepEqual(deleted.printOptions.hiddenPersonIds, []);
+  assert.deepEqual(createTree().printOptions, tree.printOptions);
+});
+
+test('invalid print options and failed writes preserve the previous data and options', () => {
+  const storage = setupStorage();
+  loadTree();
+  const tree = saveTree(demoTree());
+  const before = storage.value;
+  for (const printOptions of [null, [], 'A4', { includeLabels: 'false' }, { singlePageTree: 1 }, { includeTreeIndex: null }, { treePaper: 'A5' }, { hiddenPersonIds: ['<script>'] }, { hiddenPersonIds: Array(5001).fill('a') }, { hiddenPersonIds: ['a', 'a'] }]) {
+    assert.throws(() => saveTree({ ...tree, printOptions }));
+    assert.equal(storage.value, before);
+  }
+  storage.failWrites = true;
+  assert.throws(() => saveTree({ ...tree, printOptions: { ...tree.printOptions, treePaper: 'A3' } }), /konnte nicht speichern/);
+  assert.equal(storage.value, before);
+  assert.deepEqual(loadTree(), tree);
+  storage.failWrites = false;
+  storage.value = JSON.stringify({ ...tree, title: 'Anderes Fenster' });
+  assert.throws(() => saveTree({ ...tree, printOptions: { treePaper: 'A3' } }), /anderen Fenster/);
+  assert.equal(JSON.parse(storage.value).title, 'Anderes Fenster');
+});
 
 test('labels survive storage and backup; invalid labels and failed writes preserve saved data', () => {
   const legacy = demoTree();

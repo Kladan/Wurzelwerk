@@ -19,11 +19,20 @@ let multipleSelection = false;
 let query = '';
 let undoTree = null;
 let toastTimer;
-let includeTreeIndex = false;
-let includeLabels = false;
-let singlePageTree = false;
-let treePaper = 'A4';
-let hiddenPersonIds = new Set();
+let includeTreeIndex, includeLabels, singlePageTree, treePaper, hiddenPersonIds;
+syncPrintOptions();
+
+function syncPrintOptions() {
+  ({ includeTreeIndex, includeLabels, singlePageTree, treePaper } = tree.printOptions);
+  hiddenPersonIds = new Set(tree.printOptions.hiddenPersonIds);
+}
+
+function savePrintOptions(changes) {
+  if (loadError) throw new Error(loadError);
+  tree = saveTree({ ...tree, printOptions: { ...tree.printOptions, ...changes } });
+  syncPrintOptions();
+  undoTree = null;
+}
 const printSelectionOption = () => action('printSelection', `Personen für Druck auswählen (${tree.people.filter(p => !hiddenPersonIds.has(p.id)).length}/${tree.people.length})`, 'secondary small');
 const treePrintOptions = () => `<fieldset class="tree-print-options"><legend>Baumdruck</legend>
   <label class="print-index-option"><input type="checkbox" id="print-tree-single" ${singlePageTree ? 'checked' : ''} aria-describedby="tree-print-hint"> Gesamten Baum auf eine Seite</label>
@@ -51,10 +60,10 @@ function notify(message) {
   toastTimer = setTimeout(() => { toast.hidden = true; }, 6000);
 }
 
-function commit(next, message, recovery = false, resetPrintSelection = false) {
+function commit(next, message, recovery = false) {
   if (loadError && !recovery) throw new Error(loadError);
   tree = saveTree(next);
-  if (resetPrintSelection) hiddenPersonIds.clear();
+  syncPrintOptions();
   loadError = '';
   // Undo restores a snapshot, so later changes must invalidate that snapshot.
   undoTree = null;
@@ -267,7 +276,7 @@ async function importBackup(file) {
   try {
     if (file.size > 25 * 1024 * 1024) throw new Error('Die Datei ist zu groß. Maximal 25 MB sind erlaubt.');
     const next = validateTree(JSON.parse(await file.text()));
-    confirmChange('Sicherung öffnen?', `„${next.title}“ mit ${next.people.length} Personen ersetzt den aktuellen Stammbaum. ${loadError ? 'Der bisherige lokale Speicher ist nicht lesbar. Lade vor dem Ersetzen die Rohdaten herunter, wenn du sie noch nicht gesichert hast.' : 'Speichere deine bisherige Arbeit vorher als Sicherung.'}`, 'Stammbaum öffnen', () => { commit(next, 'Sicherung geöffnet.', true, true); undoTree = null; render(); });
+    confirmChange('Sicherung öffnen?', `„${next.title}“ mit ${next.people.length} Personen ersetzt den aktuellen Stammbaum. ${loadError ? 'Der bisherige lokale Speicher ist nicht lesbar. Lade vor dem Ersetzen die Rohdaten herunter, wenn du sie noch nicht gesichert hast.' : 'Speichere deine bisherige Arbeit vorher als Sicherung.'}`, 'Stammbaum öffnen', () => { commit(next, 'Sicherung geöffnet.', true); undoTree = null; render(); });
   } catch (error) { notify(error instanceof SyntaxError ? 'Diese Datei enthält kein gültiges JSON.' : error.message); }
 }
 
@@ -275,13 +284,13 @@ function editPrintSelection() {
   const hidden = new Set(hiddenPersonIds);
   const people = [...tree.people].sort((a, b) => displayName(a).localeCompare(displayName(b), 'de'));
   showDialog(`<form><div class="dialog-header"><h2 id="dialog-title">Personen für Druck auswählen</h2></div>
-    <div class="dialog-body"><p>Nur angehakte Personen erscheinen in Baumdruck, Chronik und HTML-Dokument. Die Auswahl gilt bis zum Neuladen. Alle Personen bleiben gespeichert. Beziehungen zu ausgeblendeten Personen entfallen in der Ausgabe; Freitexte bleiben unverändert.</p>
+    <div class="dialog-body"><p>Nur angehakte Personen erscheinen in Baumdruck, Chronik und HTML-Dokument. Die Auswahl wird mit dem Stammbaum lokal gespeichert. Alle Personen bleiben gespeichert. Beziehungen zu ausgeblendeten Personen entfallen in der Ausgabe; Freitexte bleiben unverändert.</p>
     <label class="field"><span>Personen suchen</span><input type="search" id="print-person-search" placeholder="Name suchen …"></label>
     <div class="print-selection-actions"><button type="button" class="button secondary small" id="print-select-all">Alle einblenden</button><button type="button" class="button ghost small" id="print-select-none">Alle ausblenden</button></div>
     <p id="print-selection-count" role="status"></p><div id="print-person-options" class="relationship-options print-person-options"></div>
     <div class="notice error" role="alert" hidden></div></div>
     <div class="dialog-actions"><button type="button" class="button secondary" data-close>Abbrechen</button><button class="button primary" type="submit">Auswahl übernehmen</button></div></form>`, () => {
-      hiddenPersonIds = hidden;
+      savePrintOptions({ hiddenPersonIds: [...hidden] });
       render();
       editor.close();
     });
@@ -324,8 +333,8 @@ const actions = {
   import: () => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json,application/json'; input.onchange = () => importBackup(input.files[0]); input.click(); },
   html: () => downloadFile(reportDocument(tree, { includeLabels, hiddenPersonIds }), `${safeFilename(tree.title)}-Chronik.html`, 'text/html;charset=utf-8'),
   print: () => window.print(),
-  demo: () => confirmChange('Beispiel erkunden?', 'Ein erfundener Stammbaum mit sieben Personen zeigt dir die Möglichkeiten. Er wird lokal gespeichert.', 'Beispiel laden', () => commit(demoTree(), 'Fiktives Beispiel geladen.', false, true)),
-  new: () => confirmChange('Neuen Stammbaum beginnen?', 'Der aktuelle Stammbaum wird in diesem Browser ersetzt. Lade vorher eine Sicherung herunter, wenn du ihn behalten möchtest.', 'Leeren Stammbaum anlegen', () => { commit(createTree(), 'Neuer Stammbaum angelegt.', false, true); undoTree = null; render(); }),
+  demo: () => confirmChange('Beispiel erkunden?', 'Ein erfundener Stammbaum mit sieben Personen zeigt dir die Möglichkeiten. Er wird lokal gespeichert.', 'Beispiel laden', () => commit(demoTree(), 'Fiktives Beispiel geladen.', false)),
+  new: () => confirmChange('Neuen Stammbaum beginnen?', 'Der aktuelle Stammbaum wird in diesem Browser ersetzt. Lade vorher eine Sicherung herunter, wenn du ihn behalten möchtest.', 'Leeren Stammbaum anlegen', () => { commit(createTree(), 'Neuer Stammbaum angelegt.', false); undoTree = null; render(); }),
   rename: () => showDialog(`<form><div class="dialog-header"><h2 id="dialog-title">Dein Familientitel</h2></div><div class="dialog-body"><label class="field"><span>Titel des Stammbaums</span><input name="title" required maxlength="200" value="${e(tree.title)}"></label><div class="notice error" role="alert" hidden></div></div><div class="dialog-actions"><button type="button" class="button secondary" data-close>Abbrechen</button><button type="submit" class="button primary">Titel speichern</button></div></form>`, data => { commit({ ...tree, title: data.get('title') }, 'Titel gespeichert.'); editor.close(); }),
   delete: () => confirmChange('Person löschen?', `${displayName(personById(selectedId))} und alle Verbindungen zu dieser Person werden entfernt. Die anderen Personen bleiben erhalten.`, 'Person löschen', () => { const previous = tree; commit(deletePerson(tree, selectedId), 'Person gelöscht. Du kannst die Löschung unten rückgängig machen.'); undoTree = previous; render(); }),
   undo: () => { commit(undoTree, 'Löschung rückgängig gemacht.'); undoTree = null; render(); },
@@ -346,14 +355,13 @@ app.addEventListener('click', event => {
 });
 
 app.addEventListener('change', event => {
-  if (event.target.id === 'include-labels') {
-    includeLabels = event.target.checked;
-    render();
-    app.querySelector('#include-labels')?.focus();
-  }
-  if (event.target.id === 'print-tree-index') includeTreeIndex = event.target.checked;
-  if (event.target.id === 'print-tree-single') singlePageTree = event.target.checked;
-  if (event.target.id === 'print-tree-paper') treePaper = event.target.value === 'A3' ? 'A3' : 'A4';
+  const key = { 'include-labels': 'includeLabels', 'print-tree-index': 'includeTreeIndex', 'print-tree-single': 'singlePageTree', 'print-tree-paper': 'treePaper' }[event.target.id];
+  if (!key) return;
+  try {
+    savePrintOptions({ [key]: key === 'treePaper' ? event.target.value : event.target.checked });
+  } catch (error) { notify(error.message); }
+  render();
+  app.querySelector(`#${event.target.id}`)?.focus();
 });
 
 app.addEventListener('input', event => {
