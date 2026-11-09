@@ -1,5 +1,15 @@
 # Umsetzungs- und Prüfnotiz
 
+## Einzelpartner am passenden Ende des Geschwisterblocks (9. November 2026)
+
+Einfache Partnerschaftsketten vergleichen jetzt beide Richtungen anhand der tatsächlichen Personenabstände. Vorrang haben Beziehungen mit mindestens einem Einzelkartenblock, danach sämtliche Partner-/Co-Eltern-Abstände und schließlich die bisherigen Ankerkosten. Ganze Blöcke wechseln die Seite; Geschwister behalten ihre Geburtsfolge. Im geschilderten Fall steht deshalb Cs Geschwistergruppe vor D und B, gefolgt von Bs Partnerin A. Längere Verbindungen zwischen Geschwisterblöcken werden dafür bewusst in Kauf genommen. Verzweigte Partnerschaftsnetze erhalten keine globale Optimierung.
+
+Die neue Fallmatrix prüft beide Altersreihenfolgen von B und D, C an beiden Enden seines Geschwisterblocks, A mit und ohne bekannte Eltern, gemeinsame Eltern ohne eingetragene Partnerschaft, umgekehrte Eingaben, unveränderte Generationen und Datenerhalt. Ein vorhandener Test für nachgeführte Elternzweige erwartet nun ebenfalls die näher stehende Partnerperson. Der unabhängige Review bestätigte die einmalige Zählung jeder Beziehung und die ganzzahligen Kosten ohne blockierende Befunde. Zusätzlich prüfte er 1.000 generierte validierte 30-Personen-Bäume auf deterministische Eingabeumkehrung, Generationszugehörigkeit und Datenerhalt.
+
+Chrome Headless mit isoliertem Profil und elf fiktiven Personen bestätigte die Reihenfolge `[C, Cs Geschwister, D, B, A]` auf Bildschirm und im Druck, fokussierbare Karten, keine Seitenüberbreite bei 390 Pixeln, eine A4-PDF-Seite und unveränderten localStorage nach dem Druckzyklus. Die emulierte Druckaufnahme wurde visuell geprüft. Keine PDF-Rasterprüfung, kein physischer Ausdruck, keine vollständige Tastatur-/Screenreaderprüfung und keine anderen Browser geprüft. Prüfdateien bleiben im ignorierten `.local/`.
+
+`npm.cmd run check` bestand abschließend mit 63 Tests, Syntaxprüfungen und statischem Build; `git diff --check` ohne Formatfehler.
+
 ## Personen für den Druck ausblenden (9. November 2026)
 
 Eine durchsuchbare Checkboxliste steuert gemeinsam Baumdruck, Chronikvorschau und HTML-Dokument. Alle ein-/ausblenden, Abbrechen, Auswahlzähler und Wiederherstellen sind möglich. Die Auswahl gilt für die Sitzung; erfolgreiche Sicherungsimporte, neue Bäume und Beispieldaten setzen sie zurück. Die reine Ausgabeprojektion in `src/domain.js` entfernt ausgeblendete Personen und ihre Beziehungsreferenzen. Originaldaten, Bearbeitungsansicht und Sicherungen bleiben vollständig. Es entstehen keine Ersatzbeziehungen; die Ausgabe berechnet Generationen neu und kennzeichnet sich als Auszug. Freitexte bleiben unverändert.

@@ -326,7 +326,10 @@ export function getTreeGenerations(tree) {
       for (let i = 0; i < family.length; i++) for (const other of neighbors.get(family[i])) {
         if (!visited.has(other)) { visited.add(other); family.push(other); }
       }
-      families.push({ blocks: family, key: family.flatMap(block => block.people).sort(compareNames)[0], anchor: Infinity });
+      const links = family.flatMap(block => block.people.flatMap(person => [...relatives.get(person.id)]
+        .filter(id => person.id < id && blockOf.has(id) && blockOf.get(id) !== block)
+        .map(id => ({ a: person.id, b: id, singleton: block.people.length === 1 || blockOf.get(id).people.length === 1 }))));
+      families.push({ blocks: family, links, key: family.flatMap(block => block.people).sort(compareNames)[0], anchor: Infinity });
     }
     return { families, neighbors };
   });
@@ -356,9 +359,25 @@ export function getTreeGenerations(tree) {
           current = next;
         }
         const ranks = new Map(family.blocks.map((block, index) => [block, index]));
-        const cost = list => list.reduce((sum, block, index) => sum + Math.abs(index - ranks.get(block)), 0);
+        const cost = list => {
+          const positions = new Map(list.flatMap(block => block.people).map((person, index) => [person.id, index]));
+          let singletonDistance = 0;
+          let partnerDistance = 0;
+          for (const link of family.links) {
+            const distance = Math.abs(positions.get(link.a) - positions.get(link.b));
+            partnerDistance += distance;
+            if (link.singleton) singletonDistance += distance;
+          }
+          // Keep partners in single-card blocks at the facing sibling edge.
+          // Only reverse whole block chains; sibling birth order stays fixed.
+          return [singletonDistance, partnerDistance,
+            list.reduce((sum, block, index) => sum + Math.abs(index - ranks.get(block)), 0)];
+        };
         const reverse = [...path].reverse();
-        family.blocks = cost(path) <= cost(reverse) ? path : reverse;
+        const forwardCost = cost(path);
+        const reverseCost = cost(reverse);
+        const difference = forwardCost.map((value, index) => value - reverseCost[index]).find(value => value !== 0) ?? 0;
+        family.blocks = difference <= 0 ? path : reverse;
       }
     }
     families.sort((a, b) => compareAnchors(a.anchor, b.anchor) || compareNames(a.key, b.key));
