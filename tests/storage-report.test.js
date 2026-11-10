@@ -269,7 +269,7 @@ test('unknown death dates never imply the person is alive', () => {
   assert.equal(lifespan({ birthDate: '1932-04-18', deathDate: '' }), 'geb. 1932');
   assert.equal(lifespan({ birthDate: '', deathDate: '2015' }), 'gest. 2015');
   assert.equal(lifespan({ birthDate: '', deathDate: '' }), 'Lebensdaten offen');
-  assert.equal(lifespan({ birthDate: '1932', deathDate: '2015' }), '1932 – 2015');
+  assert.equal(lifespan({ birthDate: '1932', deathDate: '2015' }), '1932 – 2015 · 82–83 Jahre');
   assert.equal(formatDate('1932-04-18'), '18.04.1932');
   assert.equal(formatDate('1932-04'), '04.1932');
   assert.equal(formatDate('1932'), '1932');

@@ -1,4 +1,4 @@
-import { displayName, getGenerations, getTreeGenerations, treeForPrint, directLineIds } from './domain.js';
+import { displayName, getGenerations, getTreeGenerations, treeForPrint, directLineIds, ageAtDeath } from './domain.js';
 import { familyConnections, connectionMarkup, connectionGap } from './tree-layout.js';
 
 export const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -11,10 +11,18 @@ export function formatDate(value) {
   const parts = value.split('-');
   return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : parts.length === 2 ? `${parts[1]}.${parts[0]}` : value;
 }
-export function lifespan(person) {
+export function formatAgeAtDeath(person) {
+  const age = ageAtDeath(person);
+  if (!age) return '';
+  if (age.unit === 'days' && age.max === 0) return 'unter 1 Tag';
+  const units = { years: ['Jahr', 'Jahre'], months: ['Monat', 'Monate'], days: ['Tag', 'Tage'] };
+  const amount = age.min === age.max ? String(age.min) : `${age.min}–${age.max}`;
+  return `${amount} ${units[age.unit][age.min === 1 && age.max === 1 ? 0 : 1]}`;
+}
+export function lifespan(person, { includeAge = true } = {}) {
   const birth = person.birthDate?.slice(0, 4);
   const death = person.deathDate?.slice(0, 4);
-  if (birth && death) return `${birth} – ${death}`;
+  if (birth && death) return `${birth} – ${death}${includeAge && formatAgeAtDeath(person) ? ` · ${formatAgeAtDeath(person)}` : ''}`;
   if (birth) return `geb. ${birth}`;
   if (death) return `gest. ${death}`;
   return 'Lebensdaten offen';
@@ -37,7 +45,7 @@ export function reportMarkup(tree, { includeLabels = false, hiddenPersonIds = []
       ${person.birthName ? `<p>Geburtsname: ${escapeHtml(person.birthName)}</p>` : ''}
       ${includeLabels ? labelsMarkup(person) : ''}
       <p>Geboren: ${escapeHtml(formatDate(person.birthDate))}${person.birthPlace ? ` in ${escapeHtml(person.birthPlace)}` : ''}</p>
-      ${person.deathDate || person.deathPlace ? `<p>Gestorben: ${escapeHtml(formatDate(person.deathDate))}${person.deathPlace ? ` in ${escapeHtml(person.deathPlace)}` : ''}</p>` : ''}
+      ${person.deathDate || person.deathPlace ? `<p>Gestorben: ${escapeHtml(formatDate(person.deathDate))}${person.deathPlace ? ` in ${escapeHtml(person.deathPlace)}` : ''}${formatAgeAtDeath(person) ? ` · Alter: ${escapeHtml(formatAgeAtDeath(person))}` : ''}</p>` : ''}
       <p>Eltern: ${names(person.parentIds) || (isExcerpt ? 'nicht erfasst oder für diese Ausgabe ausgeblendet' : 'nicht erfasst')}</p>
       ${person.partnerIds.length ? `<p>Partnerschaften: ${names(person.partnerIds)}</p>` : ''}
       ${people.some(p => p.parentIds.includes(person.id)) ? `<p>Kinder: ${names(people.filter(p => p.parentIds.includes(person.id)).map(p => p.id))}</p>` : ''}
@@ -61,6 +69,7 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
   tree = treeForPrint(tree, hiddenPersonIds);
   const isExcerpt = tree.people.length < total;
   const generations = getTreeGenerations(tree);
+  const cardHeight = tree.people.some(person => ageAtDeath(person)) ? 164 : 118;
   const rowsPerPage = singlePage ? Math.max(1, generations.length) : 4;
   const columnsPerPage = singlePage ? Math.max(8, ...generations.map(g => g.length)) : 8;
   const pageWidth = columnsPerPage * 200;
@@ -68,7 +77,7 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
   for (let row = 0; row < generations.length; row++) {
     // Bound print corridors so a very wide generation cannot shrink every tile.
     // The screen keeps full lane spacing; paper compacts crowded connections.
-    rowTops.push(rowTops[row] + 118 + Math.max(102, Math.min(176, connectionGap(generations[row + 1]))));
+    rowTops.push(rowTops[row] + cardHeight + Math.max(102, Math.min(176, connectionGap(generations[row + 1]))));
   }
   const nodes = new Map();
   const pages = [];
@@ -87,7 +96,7 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
         const page = pageByTile.get(`${row}:${Math.floor(column / columnsPerPage)}`);
         const node = { person, row: row + offset,
           x: column * 200 + 7, y: rowTops[row + offset] + 28,
-          width: 186, height: 118, page: page.number };
+          width: 186, height: cardHeight, page: page.number };
         nodes.set(person.id, node); page.cards.push(node);
       });
     });
@@ -132,17 +141,19 @@ export function treePrintMarkup(tree, { includeIndex = false, includeLabels = fa
       ${cards.map(({ person, x, y }) => {
         const name = Array.from(displayName(person));
         const lines = [name.slice(0, 21).join(''), name.slice(21, 42).join('') + (name.length > 42 ? '…' : '')];
-        const life = printLife(person);
+        const life = person.birthDate || person.deathDate ? lifespan(person, { includeAge: false }) : '';
+        const age = formatAgeAtDeath(person);
         const original = person.nickname && person.firstName ? person.firstName : '';
         const originalChars = Array.from(original);
         const originalLine = originalChars.slice(0, 26).join('') + (originalChars.length > 26 ? '…' : '');
         const labels = Array.from(labelText(person));
         const labelLine = labels.slice(0, 26).join("") + (labels.length > 26 ? "…" : "");
-        const nameY = y + (labels.length ? 27 : original ? 31 : life ? 45 : 58) - (!original && lines[1] ? 7 : 0);
-        return `<g class="tree-print-card${highlightedIds.has(person.id) ? ' lineage-highlight' : ''}"><title>${escapeHtml(displayName(person))}${original ? ` · Vorname(n): ${escapeHtml(original)}` : ''}</title><rect x="${x}" y="${y}" width="186" height="118" rx="15"/>
-          ${lines.filter(Boolean).map((line, i) => `<text class="tree-print-name" x="${x + 93}" y="${nameY + i * 24}" text-anchor="middle" font-size="18" data-fit-width="154">${escapeHtml(line)}</text>`).join('')}
-          ${original ? `<text class="tree-print-original" x="${x + 93}" y="${y + (labels.length ? 72 : 77)}" text-anchor="middle" font-size="15" data-fit-width="154">${escapeHtml(originalLine)}</text>` : ''}
-          ${life ? `<text class="tree-print-dates" x="${x + 93}" y="${y + (labels.length ? 90 : 96)}" text-anchor="middle" font-size="15">${escapeHtml(life)}</text>` : ''}${labelLine ? `<text class="tree-print-labels" x="${x + 93}" y="${y + 109}" text-anchor="middle" font-size="14" data-fit-width="154">${escapeHtml(labelLine)}</text>` : ''}</g>`;
+        const nameY = age ? y + 27 : y + (labels.length ? 27 : original ? 31 : life ? 45 : 58) - (!original && lines[1] ? 7 : 0);
+        return `<g class="tree-print-card${highlightedIds.has(person.id) ? ' lineage-highlight' : ''}"><title>${escapeHtml(displayName(person))}${original ? ` · Vorname(n): ${escapeHtml(original)}` : ''}${age ? ` · Alter: ${escapeHtml(age)}` : ''}</title><rect x="${x}" y="${y}" width="186" height="${cardHeight}" rx="15"/>
+          ${lines.filter(Boolean).map((line, i) => `<text class="tree-print-name" x="${x + 93}" y="${nameY + i * (age ? 27 : 24)}" text-anchor="middle" font-size="18" data-fit-width="154">${escapeHtml(line)}</text>`).join('')}
+          ${original ? `<text class="tree-print-original" x="${x + 93}" y="${y + (age ? 78 : labels.length ? 72 : 77)}" text-anchor="middle" font-size="15" data-fit-width="154">${escapeHtml(originalLine)}</text>` : ''}
+          ${life ? `<text class="tree-print-dates" x="${x + 93}" y="${y + (age ? 102 : labels.length ? 90 : 96)}" text-anchor="middle" font-size="15">${escapeHtml(life)}</text>` : ''}
+          ${age ? `<text class="tree-print-age" x="${x + 93}" y="${y + 126}" text-anchor="middle" font-size="15" data-fit-width="154">${escapeHtml(age)}</text>` : ''}${labelLine ? `<text class="tree-print-labels" x="${x + 93}" y="${y + (age ? 150 : 109)}" text-anchor="middle" font-size="14" data-fit-width="154">${escapeHtml(labelLine)}</text>` : ''}</g>`;
       }).join('')}</svg>
       <p class="tree-print-legend">Linien verbinden Eltern und Kinder.${highlightPerson ? ` Kräftige Ränder und Linien: direkter Strang von ${tree.people.some(person => person.id === highlightPersonId) ? escapeHtml(displayName(highlightPerson)) : 'einer ausgeblendeten Bezugsperson'} (Person, Vorfahren und Nachkommen).` : ''}${includeLabels && cards.some(({ person }) => Array.from(labelText(person)).length > 26) ? ' Labels mit … sind gekürzt; vollständige Labels stehen im Anhang.' : ''}${cards.some(({ person }) => person.nickname && person.firstName) ? ' Bei Spitznamen stehen die Vornamen klein darunter.' : ''}${disconnected.length ? ' Verbindungen über Blatt- und Generationsgrenzen stehen im Anhang.' : ''}${cards.some(({ person }) => Array.from(displayName(person)).length > 42 || (person.nickname && Array.from(person.firstName).length > 26)) ? ' Namen mit … sind gekürzt.' : ''}${includeIndex ? ' Vollständige Namen und Partnerschaften im Verzeichnis.' : ''}</p></section>`;
   }).join('')}${appendix}${includeLabels && !includeIndex && [...nodes.values()].some(({ person }) => Array.from(labelText(person)).length > 26) ? `<section class="tree-print-index">${header('Vollständige Labels')}<ul>${[...nodes.values()].filter(({ person }) => labelText(person)).map(node => `<li>${reference(node.person.id)}</li>`).join('')}</ul></section>` : ''}</article>`;

@@ -357,7 +357,7 @@ input[type=checkbox] { accent-color: var(--pine); width: 16px; height: 16px; }
 .tree-print-page > svg { display: block; width: 265mm; max-width: 100%; height: auto; overflow: hidden; font-family: inherit; }
 .tree-print-card rect { fill: #f7f9f3; stroke: #c7d3bf; stroke-width: 1.4; }
 .tree-print-name { fill: #294b38; font-weight: 500; }
-.tree-print-dates, .tree-print-generation, .tree-print-original { fill: #64725d; }
+.tree-print-dates, .tree-print-age, .tree-print-generation, .tree-print-original { fill: #64725d; }
 
 .original-names { display: block; font-size: 11px; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
 .detail-content > .original-names { grid-column: 1 / -1; text-align: center; margin: 5px 0 12px; }

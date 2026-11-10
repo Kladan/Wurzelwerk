@@ -1,6 +1,6 @@
 import { createTree, createPerson, validateTree, upsertPerson, addRelative, linkPeople, getFamilyLinkSuggestion, getParentSuggestions, deletePerson, displayName, getGenerations, getTreeGenerations, demoTree } from './domain.js';
 import { loadTree, saveTree, downloadFile, safeFilename, STORAGE_KEY } from './storage.js';
-import { escapeHtml as e, formatDate, lifespan, reportMarkup, reportDocument, treePrintMarkup, fitTreePrintText, originalNamesMarkup, labelsMarkup } from './report.js';
+import { escapeHtml as e, formatDate, lifespan, formatAgeAtDeath, reportMarkup, reportDocument, treePrintMarkup, fitTreePrintText, originalNamesMarkup, labelsMarkup } from './report.js';
 
 import { familyConnections, connectionMarkup, connectionGap } from './tree-layout.js';
 
@@ -93,7 +93,7 @@ function detailPanel() {
   return `<aside class="detail-panel" aria-label="Personendetails"><div class="panel-header"><span class="eyebrow">PERSON IM FOKUS</span>${action('edit', 'Bearbeiten', 'ghost small')}</div>
     <div class="detail-content"><span class="avatar large">${initials(person)}</span><h2>${e(displayName(person))}</h2>${originalNamesMarkup(person)}${person.birthName ? `<p class="muted">geborene/r ${e(person.birthName)}</p>` : ''}
     ${labelsMarkup(person)}<dl class="person-facts"><dt>Geboren</dt><dd>${e(formatDate(person.birthDate))}${person.birthPlace ? `<br>${e(person.birthPlace)}` : ''}</dd>
-    ${person.deathDate || person.deathPlace ? `<dt>Gestorben</dt><dd>${e(formatDate(person.deathDate))}${person.deathPlace ? `<br>${e(person.deathPlace)}` : ''}</dd>` : ''}</dl>
+    ${person.deathDate || person.deathPlace ? `<dt>Gestorben</dt><dd>${e(formatDate(person.deathDate))}${person.deathPlace ? `<br>${e(person.deathPlace)}` : ''}${formatAgeAtDeath(person) ? `<br><span class="death-age">Alter: ${e(formatAgeAtDeath(person))}</span>` : ''}</dd>` : ''}</dl>
     <div class="detail-section"><h3>Verbindungen</h3><p><span class="muted">Eltern</span><br>${nameLinks(person.parentIds) || 'Noch nicht erfasst'}</p><p><span class="muted">Partnerschaften</span><br>${nameLinks(person.partnerIds) || 'Noch nicht erfasst'}</p><p><span class="muted">Kinder</span><br>${nameLinks(children.map(p => p.id)) || 'Noch nicht erfasst'}</p><div class="relative-actions">${person.parentIds.length < 2 ? action('parent', '+ Elternteil hinzufügen', 'secondary small') : ''}${action('partner', '+ Partnerschaft hinzufügen', 'secondary small')}${action('child', '+ Kind hinzufügen', 'secondary small')}</div></div>
     ${person.notes ? `<div class="detail-section"><h3>Erinnerungen</h3><p class="preserve-lines">${e(person.notes)}</p></div>` : ''}${person.sources ? `<div class="detail-section"><h3>Quellen</h3><p class="preserve-lines">${e(person.sources)}</p></div>` : ''}
     <div class="detail-section">${action('delete', 'Person löschen', 'danger small')}</div></div></aside>`;

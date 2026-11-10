@@ -1,6 +1,38 @@
 const PERSON_FIELDS = ['firstName', 'nickname', 'lastName', 'birthName', 'birthDate', 'birthPlace', 'deathDate', 'deathPlace', 'notes', 'sources'];
 const MAX_PEOPLE = 5000;
 
+// Bounds preserve the precision of recorded dates; no unknown birthday is invented.
+export function ageAtDeath(person) {
+  if (!person.birthDate || !person.deathDate) return null;
+  const utcDate = (year, month, day) => {
+    const result = new Date(0);
+    result.setUTCFullYear(year, month - 1, day);
+    return result;
+  };
+  const bounds = value => {
+    const [year, month, day] = value.split('-').map(Number);
+    return [utcDate(year, month || 1, day || 1),
+      day ? utcDate(year, month, day) : month ? utcDate(year, month + 1, 0) : utcDate(year, 12, 31)];
+  };
+  const [birthMin, birthMax] = bounds(person.birthDate);
+  const [deathMin, deathMax] = bounds(person.deathDate);
+  if (deathMax < birthMin) return null;
+  const completed = (birth, death, unit) => {
+    if (death <= birth) return 0;
+    const years = death.getUTCFullYear() - birth.getUTCFullYear();
+    const months = death.getUTCMonth() - birth.getUTCMonth();
+    const days = death.getUTCDate() - birth.getUTCDate();
+    if (unit === 'years') return years - Number(months < 0 || (months === 0 && days < 0));
+    if (unit === 'months') return years * 12 + months - Number(days < 0);
+    return Math.round((death - birth) / 86400000);
+  };
+  // A 29 February anniversary is reached on 1 March in non-leap years.
+  for (const unit of ['years', 'months', 'days']) {
+    const max = completed(birthMin, deathMax, unit);
+    if (max > 0 || unit === 'days') return { min: completed(birthMax, deathMin, unit), max, unit };
+  }
+}
+
 function text(value, field, max = 500) {
   if (typeof value !== 'string' || value.length > max) throw new Error(`${field}: ungültiger oder zu langer Text.`);
   return value.trim();
