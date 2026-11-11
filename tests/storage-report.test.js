@@ -212,6 +212,41 @@ test('nickname display retains and escapes all given names in chronicle and tree
   assert.equal(treePrintMarkup({ ...tree, people: [person] }).includes('class="tree-print-original"'), false);
 });
 
+test('tree print shows differing birth names regardless of parents and preserves full escaped names', () => {
+  const longName = '<Sommer> & ' + 'Lang'.repeat(20);
+  const tree = validateTree({ ...createTree(), people: [
+    createPerson({ id: 'parent', firstName: 'Elternteil', lastName: 'Linden', birthName: 'Berg' }),
+    createPerson({ id: 'child', firstName: 'Johann Friedrich', nickname: 'Hans', lastName: 'Linden', birthName: longName,
+      parentIds: ['parent'], birthDate: '1920', deathDate: '1990', labels: ['Fiktiv'] }),
+    createPerson({ id: 'same', firstName: 'Gleich', lastName: 'Linden', birthName: 'Linden' }),
+    createPerson({ id: 'unknown', firstName: 'Offen' }),
+  ] });
+  const before = structuredClone(tree);
+  for (const singlePage of [false, true]) for (const paper of ['A4', 'A3']) {
+    const output = treePrintMarkup(tree, { singlePage, paper, includeLabels: true, includeIndex: true });
+    const cards = [...output.matchAll(/<g class="tree-print-card[^]*?<\/g>/g)].map(match => match[0]);
+    assert.equal(cards.filter(card => card.includes('class="tree-print-birth-name"')).length, 2);
+    assert.ok(cards.some(card => card.includes('>geb. Berg</text>')));
+    const child = cards.find(card => card.includes('Hans Linden'));
+    assert.ok(child.includes(`geb. ${escapeHtml(longName)}`));
+    assert.ok(child.includes('…</text>'));
+    assert.ok(child.includes('class="tree-print-original"'));
+    const rows = [...child.matchAll(/<text [^>]*y="([\d.]+)"[^>]*>([^]*?)<\/text>/g)];
+    const baselines = rows.map(row => Number(row[1]));
+    for (let index = 1; index < baselines.length; index++) assert.ok(baselines[index] - baselines[index - 1] >= 18);
+    const rect = child.match(/<rect [^>]*y="([\d.]+)"[^>]*height="([\d.]+)"/);
+    assert.ok(baselines.at(-1) < Number(rect[1]) + Number(rect[2]) - 8);
+    assert.ok(output.split('tree-print-index')[1].includes(`geb. ${escapeHtml(longName)}`));
+    assert.equal(output.includes('<Sommer>'), false);
+    assert.equal(output.includes('geb. Linden'), false);
+  }
+  const hidden = treePrintMarkup(tree, { hiddenPersonIds: ['parent', 'child'], includeIndex: true });
+  assert.equal(hidden.includes('geb. Berg'), false);
+  assert.equal(hidden.includes('Sommer'), false);
+  assert.equal(hidden.includes('tree-print-birth-name'), false);
+  assert.deepEqual(tree, before);
+});
+
 test('a new local tree can be saved and loaded without changing its data', () => {
   const storage = setupStorage();
   assert.deepEqual(loadTree(), createTree());
