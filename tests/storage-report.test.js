@@ -179,7 +179,7 @@ test('adding labels preserves print selection and the label appendix lists only 
   const printOptions = structuredClone(tree.printOptions);
   const render = options => treePrintMarkup(tree, { ...tree.printOptions, ...options });
   assert.equal(render().includes('Vollständige Labels'), false);
-  tree = upsertPerson(tree, { ...tree.people.find(p => p.id === 'long'), labels: ['Erstes Label', 'Zweites <Label> mit Details'] });
+  tree = upsertPerson(tree, { ...tree.people.find(p => p.id === 'long'), labels: ['Erstes Label', 'Zweites <Label> mit vielen weiteren fiktiven Details'] });
   assert.deepEqual(tree.printOptions, printOptions);
   const before = structuredClone(tree);
   for (const singlePage of [false, true]) for (const paper of ['A4', 'A3']) {
@@ -189,7 +189,7 @@ test('adding labels preserves print selection and the label appendix lists only 
     assert.ok(appendix.includes('Vollständige Labels der gedruckten Personen'));
     assert.ok(appendix.includes('Diese Personen sind im Baum enthalten.'));
     assert.ok(appendix.includes('Lange Labels'));
-    assert.ok(appendix.includes('Erstes Label · Zweites &lt;Label&gt; mit Details'));
+    assert.ok(appendix.includes('Erstes Label · Zweites &lt;Label&gt; mit vielen weiteren fiktiven Details'));
     assert.equal(appendix.includes('Kurze Labels'), false);
     assert.equal(appendix.includes('Grenzfall'), false);
     assert.equal(output.includes('Verborgene Person'), false);
@@ -199,7 +199,7 @@ test('adding labels preserves print selection and the label appendix lists only 
   const indexed = render({ includeIndex: true });
   assert.equal(indexed.includes('Vollständige Labels'), false);
   assert.ok(indexed.includes('Kurze Labels'));
-  assert.ok(indexed.includes('Zweites &lt;Label&gt; mit Details'));
+  assert.ok(indexed.includes('Zweites &lt;Label&gt; mit vielen weiteren fiktiven Details'));
   assert.equal(render({ includeLabels: false }).includes('Vollständige Labels'), false);
   assert.deepEqual(tree, before);
 });
