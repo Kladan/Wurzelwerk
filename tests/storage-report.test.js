@@ -169,6 +169,41 @@ test('label output is opt-in, escaped, complete and does not mutate the tree', (
   assert.ok(!treePrintMarkup(tree, { includeLabels: true }).includes('class="tree-print-labels"'));
 });
 
+test('adding labels preserves print selection and the label appendix lists only printed cards with truncated labels', () => {
+  let tree = validateTree({ ...createTree(), people: [
+    createPerson({ id: 'long', firstName: 'Lange Labels', labels: ['Erstes Label'] }),
+    createPerson({ id: 'short', firstName: 'Kurze Labels', labels: ['Kurz'] }),
+    createPerson({ id: 'boundary', firstName: 'Grenzfall', labels: ['X'.repeat(26)] }),
+    createPerson({ id: 'hidden', firstName: 'Verborgene Person', labels: ['Verborgenes langes Label '.repeat(2)], parentIds: ['long'] }),
+  ], printOptions: { includeLabels: true, hiddenPersonIds: ['hidden'] } });
+  const printOptions = structuredClone(tree.printOptions);
+  const render = options => treePrintMarkup(tree, { ...tree.printOptions, ...options });
+  assert.equal(render().includes('Vollständige Labels'), false);
+  tree = upsertPerson(tree, { ...tree.people.find(p => p.id === 'long'), labels: ['Erstes Label', 'Zweites <Label> mit Details'] });
+  assert.deepEqual(tree.printOptions, printOptions);
+  const before = structuredClone(tree);
+  for (const singlePage of [false, true]) for (const paper of ['A4', 'A3']) {
+    const output = render({ singlePage, paper });
+    assert.equal((output.match(/<rect /g) ?? []).length, 3);
+    const appendix = output.slice(output.indexOf('<section class="tree-print-index'));
+    assert.ok(appendix.includes('Vollständige Labels der gedruckten Personen'));
+    assert.ok(appendix.includes('Diese Personen sind im Baum enthalten.'));
+    assert.ok(appendix.includes('Lange Labels'));
+    assert.ok(appendix.includes('Erstes Label · Zweites &lt;Label&gt; mit Details'));
+    assert.equal(appendix.includes('Kurze Labels'), false);
+    assert.equal(appendix.includes('Grenzfall'), false);
+    assert.equal(output.includes('Verborgene Person'), false);
+    assert.equal(output.includes('Verborgenes langes Label'), false);
+    assert.equal(output.includes('<Label>'), false);
+  }
+  const indexed = render({ includeIndex: true });
+  assert.equal(indexed.includes('Vollständige Labels'), false);
+  assert.ok(indexed.includes('Kurze Labels'));
+  assert.ok(indexed.includes('Zweites &lt;Label&gt; mit Details'));
+  assert.equal(render({ includeLabels: false }).includes('Vollständige Labels'), false);
+  assert.deepEqual(tree, before);
+});
+
 test('nicknames survive legacy loading, saving and backup round trips without replacing given names', () => {
   const legacy = demoTree();
   for (const person of legacy.people) delete person.nickname;
