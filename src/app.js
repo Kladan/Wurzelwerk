@@ -184,11 +184,11 @@ function render() {
     <section class="stats no-print" aria-label="Stammbaum in Zahlen"><div class="stat"><span class="stat-value">${tree.people.length}</span><span>Menschen im Stammbaum</span></div><div class="stat"><span class="stat-value">${generations.length}</span><span>erfasste Generationen</span></div><div class="stat"><span class="stat-value">${new Set(tree.people.map(p => p.birthPlace).filter(Boolean)).size}</span><span>Geburtsorte</span></div><div class="stat privacy-stat"><span class="stat-value">Lokal.</span><span>Deine Daten bleiben bei dir</span></div></section>
     ${view === 'report' ? `<div class="toolbar no-print"><p>Die Chronik enthält die für den Druck gewählten Personen mit Beziehungen, Erinnerungen und Quellen.</p>${printControls()}</div>${tree.people.length ? reportMarkup(tree, { includeLabels, hiddenPersonIds }) : emptyState()}` : `<div class="toolbar view-toolbar no-print"><div class="view-controls"><div class="view-tabs" aria-label="Darstellung">${[['tree','Stammbaum'],['people','Alle Personen']].map(([key,label]) => `<button class="view-tab ${view === key ? 'active' : ''}" data-view="${key}">${label}</button>`).join('')}</div>${view === 'tree' && tree.people.length ? action('expandTree', expandedTree ? 'Ansicht verkleinern' : 'Baum vergrößern', 'secondary small', `aria-pressed="${expandedTree}" title="Große Baumansicht; mit Escape verlassen"`) : ''}</div><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" aria-label="Personen durchsuchen" placeholder="Name oder Geburtsort suchen …" value="${e(query)}"></label>${printControls()}</div>${workspace()}`}
     <footer class="app-footer no-print"><span>WURZELWERK</span><span>${loadError ? 'Speicherung prüfen' : 'Änderungen werden in diesem Browser lokal gespeichert.'}</span>${undoTree ? action('undo', 'Letzte Löschung rückgängig', 'ghost small') : ''}</footer></main></div>`;
-  if (view === 'tree' && !query) requestAnimationFrame(() => {
-    const scroll = document.querySelector('.tree-scroll');
-    if (scroll && scrollPosition) { scroll.scrollLeft = scrollPosition[0]; scroll.scrollTop = scrollPosition[1]; }
-    drawConnections();
-  });
+  // Restore immediately: another render (e.g. after saving a person) can run
+  // before the next animation frame and must see the preserved position.
+  const scroll = document.querySelector('.tree-scroll');
+  if (scroll && scrollPosition) { scroll.scrollLeft = scrollPosition[0]; scroll.scrollTop = scrollPosition[1]; }
+  if (view === 'tree' && !query) requestAnimationFrame(drawConnections);
 }
 
 function drawConnections() {
