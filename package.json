@@ -4,6 +4,8 @@
   "description": "Ein privater, lokaler Stammbaum mit druckbarer Familienchronik",
   "type": "module",
   "scripts": {
+    "setup:hooks": "node scripts/setup-hooks.mjs",
+    "prepare": "node scripts/setup-hooks.mjs",
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
     "build": "node scripts/build.mjs",

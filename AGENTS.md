@@ -1,5 +1,7 @@
 # Wurzelwerk
 
+- Commit-Nachrichten als Conventional Commits schreiben: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `perf:`, `test:`, `build:`, `ci:`, `chore:` oder `revert:`, optional mit Scope und `!`. Den fachlich passenden Typ selbst wählen; die Hook-Heuristik ist nur ein Fallback. Lokale Hooks mit `npm run setup:hooks` aktivieren.
+
 Lokale Stammbaum-Anwendung. Die Fachrollen umfassen technische Leitung/Integration, Software Engineering und Architektur, Datenschutz/Security sowie UX und Gestaltung. Nur tatsächlich ausgeführte Reviews dokumentieren. Bei größeren Aufgaben passende unabhängige Agenten einbeziehen.
 
 - Keine Cloud, Telemetrie, externen Fonts oder CDN-Ressourcen hinzufügen. Laufzeit bleibt ohne externe Pakete.

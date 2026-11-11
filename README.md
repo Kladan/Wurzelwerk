@@ -31,6 +31,14 @@ Bei einer Auswahl aus genau zwei benachbarten dargestellten Generationen sind di
 
 Auf großen Bildschirmen nutzt der Stammbaum die verfügbare Breite. **Baum vergrößern** steht bei den Ansichtsreitern, blendet Navigation, Kopfbereich und Übersichtszahlen aus und nutzt auch auf Laptops und kleinen Bildschirmen die Fensterhöhe für den Arbeitsbereich. Suche und Personendetails bleiben erreichbar; auf schmalen Bildschirmen stehen die Details unter dem Baum im scrollbar erreichbaren Arbeitsbereich. **Ansicht verkleinern** oder **Escape** stellt die normale Ansicht wieder her; Escape schließt zuerst einen geöffneten Dialog oder die Druckoptionen. Die Einstellung gilt für die laufende Sitzung.
 
+## Commit-Konvention und lokale Hooks
+
+`npm run setup:hooks` aktiviert die versionierten Hooks aus `.githooks` ausschließlich für dieses Repository. Auch `npm install` aktiviert sie über das `prepare`-Skript. Ein bereits anders konfigurierter Hook-Pfad wird nicht überschrieben. Voraussetzung ist Node.js im Git-/IDE-Prozesspfad.
+
+Commit-Nachrichten folgen `typ: Beschreibung`, optional `typ(scope)!: Beschreibung`. Unterstützt werden `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore` und `revert`. Bereits angegebene Typen bleiben erhalten. Ohne Präfix ergänzt der Vorbereitungshook anhand eindeutiger Anfangswörter (z. B. `Add` → `feat`, `Preserve` → `fix`), anschließend anhand ausschließlich geänderter Dokumentations-, Test- oder CSS-Dateien einen Typ. Ohne eindeutiges Signal verwendet er `chore`. Den fachlich richtigen Typ im Editor prüfen oder direkt mit `git commit -m "fix: …"` angeben. Nachrichtentext und Beschreibung bleiben erhalten. Der zweite Hook weist ungültige Formate zurück.
+
+Nach dem Editor ergänzt der zweite Hook ebenfalls noch fehlende Präfixe und prüft anschließend das Format; das gilt auch für wiederverwendete Nachrichten ohne Typ. Git-generierte Merge-/Revert-Nachrichten und gültige Autosquash-Präfixe bleiben erhalten. Hooks gelten pro Klon und können technisch umgangen werden; sie sind keine serverseitige Regel. Die Anwendung selbst benötigt weiterhin keine externen Pakete oder Netzwerkzugriffe.
+
 ## Speichern und sichern
 
 Unter **Person bearbeiten** kannst du optionale **Labels** erfassen, eines pro Zeile, etwa „Krieg“ für eine Person, die im Krieg war. Bis zu 20 Labels mit je 60 Zeichen sind möglich. Einzelheiten und Belege gehören in Erinnerungen und Quellen. Leere Zeilen entfallen; identische Labels werden zusammengefasst. Zum Entfernen die entsprechende Zeile löschen und speichern.

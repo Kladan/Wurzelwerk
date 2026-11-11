@@ -286,3 +286,11 @@ Eigener Integrationsreview: Die Personenbearbeitung rendert beim Speichern zweim
 Ausgeführt: `npm.cmd run check` mit 74 erfolgreichen Tests, Syntaxprüfung und Build. Neuer Regressionstest führt den tatsächlichen Formular-Submit mit simuliertem DOM und verzögerten Frames aus und prüft gespeicherte Änderung, geschlossenen Dialog und beide Scrollachsen vor und nach den Frames. Lokaler Chrome-Headless-Test mit 40 fiktiven Personen: Position [400, 180] nach Bearbeitung unverändert bei 1280 und 390 Pixeln, jeweils normale und vergrößerte Baumansicht; Fokus kehrt zum Bearbeiten-Button zurück, Änderung ist gespeichert, keine Seitenüberbreite bei 390 Pixeln. A4-Druckmedium enthält alle 40 Karten. Browser-Testskript und isoliertes Profil bleiben unter `.local/`.
 
 Prüfgrenzen: Kein unabhängiger Agentenreview für diese kleine Korrektur. Keine visuelle Druckprüfung, kein physischer Ausdruck, keine weiteren Browser oder Screenreader. Bei Layoutänderungen, die den verfügbaren Scrollbereich verkleinern, begrenzt der Browser die Position weiterhin auf den verbleibenden Bereich.
+
+# Commit-Konvention und lokale Historienkorrektur (2026-11-11)
+
+23 Commit-Nachrichten nach den ersten fünf Commits um fachlich zugeordnete Conventional-Commit-Präfixe ergänzt. Trees, Autor-/Committerdaten und restlicher Nachrichtentext bleiben erhalten. Lokale Sicherung: `refs/backup/commit-messages-2026-11-11`. `origin/main` bleibt unverändert; kein Push ausgeführt.
+
+Unabhängiges Agentenreview für Hook-Verhalten, Datenerhalt und Rewrite-Skript durchgeführt. Der gefundene fehlende Automatismus bei Editor-Commits wurde korrigiert und mit einem echten Git-Editor-Commit geprüft. Eigenes `npm.cmd run check`: alle 81 Tests, Syntaxprüfungen und Build erfolgreich. Hook-Integration prüft Präfixergänzung, Nachrichtentext, Editor, Autosquash, Fehlerabbruch ohne Verlust vorgemerkter Änderungen und Schutz eines bestehenden Hook-Pfads. Agent hat die vier Hook-Tests separat erfolgreich ausgeführt.
+
+Prüfgrenzen: Typzuordnung ist eine Heuristik mit `chore` als Fallback; fachliche Richtigkeit bleibt beim Autor. Hooks müssen pro Klon aktiviert werden und sind umgehbar. Keine serverseitige Erzwingung, kein Push und keine interaktive IDE-Prüfung. Anwendungscode unverändert; keine zusätzliche Browser-/Druckprüfung erforderlich.
